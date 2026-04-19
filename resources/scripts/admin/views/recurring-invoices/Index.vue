@@ -4,7 +4,7 @@
 
     <BasePageHeader :title="$t('recurring_invoices.title')">
       <BaseBreadcrumb>
-        <BaseBreadcrumbItem :title="$t('general.home')" to="dashboard" />
+        <BaseBreadcrumbItem :title="$t('general.home')" to="/admin/dashboard" />
 
         <BaseBreadcrumbItem
           :title="$t('recurring_invoices.invoice', 2)"

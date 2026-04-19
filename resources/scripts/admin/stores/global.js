@@ -7,6 +7,9 @@ import { useNotificationStore } from '@/scripts/stores/notification'
 import { handleError } from '@/scripts/helpers/error-handling'
 import _ from 'lodash'
 
+const BOOTSTRAP_CACHE_PREFIX = 'invoiceshelf.bootstrap.'
+const BOOTSTRAP_CACHE_TTL = 30 * 60 * 1000
+
 export const useGlobalStore = (useWindow = false) => {
   const defineStoreFunc = useWindow ? window.pinia.defineStore : defineStore
   const { global } = window.i18n
@@ -33,6 +36,8 @@ export const useGlobalStore = (useWindow = false) => {
 
       // Boolean Flags
       isAppLoaded: false,
+      isBootstrapping: false,
+      isHydratedFromCache: false,
       isSidebarOpen: false,
       areCurrenciesLoading: false,
 
@@ -46,75 +51,130 @@ export const useGlobalStore = (useWindow = false) => {
     },
 
     actions: {
-      bootstrap() {
-        return new Promise((resolve, reject) => {
-          axios
-            .get('/api/v1/bootstrap')
-            .then(async (response) => {
-              const companyStore = useCompanyStore()
-              const userStore = useUserStore()
-              const moduleStore = useModuleStore()
+      async bootstrap({ useCache = true } = {}) {
+        if (useCache) {
+          this.hydrateBootstrapCache()
+        }
 
-              this.mainMenu = response.data.main_menu
-              this.settingMenu = response.data.setting_menu
+        this.isBootstrapping = true
 
-              this.config = response.data.config
-              this.globalSettings = response.data.global_settings
+        try {
+          const response = await axios.get('/api/v1/bootstrap')
 
-              // user store
-              userStore.currentUser = response.data.current_user
-              userStore.currentUserSettings =
-                response.data.current_user_settings
-              userStore.currentAbilities = response.data.current_user_abilities
+          this.applyBootstrapPayload(response.data)
+          this.writeBootstrapCache(response.data)
 
-              // Module store
-              moduleStore.apiToken = response.data.global_settings.api_token
-              moduleStore.enableModules = response.data.modules
+          return response
+        } catch (err) {
+          handleError(err)
+          throw err
+        } finally {
+          this.isBootstrapping = false
+        }
+      },
 
-              // company store
-              companyStore.companies = response.data.companies
-              companyStore.selectedCompany = response.data.current_company
-              companyStore.setSelectedCompany(response.data.current_company)
-              companyStore.selectedCompanySettings =
-                response.data.current_company_settings
-              companyStore.selectedCompanyCurrency =
-                response.data.current_company_currency
+      applyBootstrapPayload(data, { fromCache = false } = {}) {
+        const companyStore = useCompanyStore()
+        const userStore = useUserStore()
+        const moduleStore = useModuleStore()
 
-              // Determine and load the appropriate language
-              const userLanguage = response.data.current_user_settings?.language
-              const companyLanguage = response.data.current_company_settings?.language
-              const targetLanguage = userLanguage || companyLanguage || 'sr'
+        this.mainMenu = data.main_menu || []
+        this.settingMenu = data.setting_menu || []
+        this.config = data.config || null
+        this.globalSettings = data.global_settings || null
 
-              // Load the language dynamically if it's not English
-              if (targetLanguage !== 'en' && window.loadLanguage) {
-                try {
-                  await window.loadLanguage(targetLanguage)
-                } catch (error) {
-                  console.warn('Failed to load language during bootstrap:', error)
-                  // Fall back to English if loading fails
-                  if (typeof global.locale !== 'string') {
-                    global.locale.value = 'en'
-                  } else {
-                    global.locale = 'en'
-                  }
-                }
-              } else {
-                // Set locale for English or when loadLanguage is not available
-                if (typeof global.locale !== 'string') {
-                  global.locale.value = targetLanguage
-                } else {
-                  global.locale = targetLanguage
-                }
-              }
+        userStore.currentUser = data.current_user || null
+        userStore.currentUserSettings = data.current_user_settings || {}
+        userStore.currentAbilities = data.current_user_abilities || []
 
-              this.isAppLoaded = true
-              resolve(response)
+        moduleStore.apiToken = data.global_settings?.api_token
+        moduleStore.enableModules = data.modules || []
+
+        companyStore.companies = data.companies || []
+        companyStore.selectedCompany = data.current_company || null
+        if (data.current_company) {
+          companyStore.setSelectedCompany(data.current_company)
+        }
+        companyStore.selectedCompanySettings =
+          data.current_company_settings || {}
+        companyStore.selectedCompanyCurrency =
+          data.current_company_currency || null
+
+        this.setBootstrapLanguage(data)
+        this.isHydratedFromCache = fromCache
+        this.isAppLoaded = true
+      },
+
+      setBootstrapLanguage(data) {
+        const userLanguage = data.current_user_settings?.language
+        const companyLanguage = data.current_company_settings?.language
+        const targetLanguage = userLanguage || companyLanguage || 'sr'
+
+        if (typeof global.locale !== 'string') {
+          global.locale.value = targetLanguage
+        } else {
+          global.locale = targetLanguage
+        }
+
+        if (targetLanguage !== 'en' && window.loadLanguage) {
+          window.loadLanguage(targetLanguage).catch((error) => {
+            console.warn('Failed to load language during bootstrap:', error)
+          })
+        }
+      },
+
+      hydrateBootstrapCache() {
+        if (this.isAppLoaded) {
+          return true
+        }
+
+        const cached = this.readBootstrapCache()
+
+        if (!cached) {
+          return false
+        }
+
+        this.applyBootstrapPayload(cached.payload, { fromCache: true })
+
+        return true
+      },
+
+      readBootstrapCache() {
+        try {
+          const raw = localStorage.getItem(this.getBootstrapCacheKey())
+
+          if (!raw) {
+            return null
+          }
+
+          const cached = JSON.parse(raw)
+
+          if (!cached?.payload || Date.now() - cached.cachedAt > BOOTSTRAP_CACHE_TTL) {
+            return null
+          }
+
+          return cached
+        } catch (error) {
+          return null
+        }
+      },
+
+      writeBootstrapCache(payload) {
+        try {
+          localStorage.setItem(
+            this.getBootstrapCacheKey(payload.current_company?.id),
+            JSON.stringify({
+              cachedAt: Date.now(),
+              payload,
             })
-            .catch((err) => {
-              handleError(err)
-              reject(err)
-            })
-        })
+          )
+        } catch (error) {
+          // Local storage is best-effort. Fresh bootstrap data is already applied.
+        }
+      },
+
+      getBootstrapCacheKey(companyId = null) {
+        return `${BOOTSTRAP_CACHE_PREFIX}${companyId || window.Ls?.get('selectedCompany') || 'default'}`
       },
 
       fetchCurrencies() {

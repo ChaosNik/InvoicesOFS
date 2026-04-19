@@ -211,7 +211,7 @@ function addNewCompany() {
 async function changeCompany(company) {
   await companyStore.setSelectedCompany(company)
   router.push('/admin/dashboard')
-  await globalStore.setIsAppLoaded(false)
+  globalStore.hydrateBootstrapCache()
   await globalStore.bootstrap()
 }
 </script>

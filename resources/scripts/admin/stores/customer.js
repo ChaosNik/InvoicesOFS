@@ -16,6 +16,8 @@ export const useCustomerStore = (useWindow = false) => {
     id: 'customer',
     state: () => ({
       customers: [],
+      allCustomersCache: [],
+      allCustomersCacheLoaded: false,
       totalCustomers: 0,
       selectAllField: false,
       selectedCustomers: [],
@@ -75,11 +77,65 @@ export const useCustomerStore = (useWindow = false) => {
 
       fetchCustomers(params) {
         return new Promise((resolve, reject) => {
+          const requestParams = { ...(params || {}) }
+          delete requestParams.background
+
+          const hasPage = !!requestParams.page
+          const search = (
+            requestParams.search ||
+            requestParams.display_name ||
+            ''
+          )
+            .toString()
+            .toLowerCase()
+          const isMenuRequest =
+            !hasPage &&
+            (!requestParams.filter ||
+              Object.keys(requestParams.filter).length === 0) &&
+            !requestParams.orderByField &&
+            !requestParams.orderBy &&
+            !requestParams.customer_id
+
+          if (isMenuRequest && !search) {
+            requestParams.limit = 'all'
+          }
+
+          if (isMenuRequest && this.allCustomersCacheLoaded) {
+            const data = search
+              ? this.allCustomersCache.filter((customer) => {
+                  return [
+                    customer.name,
+                    customer.display_name,
+                    customer.contact_name,
+                    customer.email,
+                  ].some((value) =>
+                    value?.toString().toLowerCase().includes(search)
+                  )
+                })
+              : this.allCustomersCache
+
+            this.customers = data
+            this.totalCustomers = data.length
+            resolve({
+              data: {
+                data,
+                meta: { customer_total_count: data.length },
+              },
+            })
+            return
+          }
+
           axios
-            .get(`/api/v1/customers`, { params })
+            .get(`/api/v1/customers`, { params: requestParams })
             .then((response) => {
               this.customers = response.data.data
               this.totalCustomers = response.data.meta.customer_total_count
+
+              if (isMenuRequest && !search) {
+                this.allCustomersCache = response.data.data
+                this.allCustomersCacheLoaded = true
+              }
+
               resolve(response)
             })
             .catch((err) => {
@@ -133,6 +189,7 @@ export const useCustomerStore = (useWindow = false) => {
             .post('/api/v1/customers', data)
             .then((response) => {
               this.customers.push(response.data.data)
+              this.allCustomersCacheLoaded = false
 
               const notificationStore = useNotificationStore()
               notificationStore.showNotification({
@@ -159,6 +216,7 @@ export const useCustomerStore = (useWindow = false) => {
                   (customer) => customer.id === response.data.data.id
                 )
                 this.customers[pos] = data
+                this.allCustomersCacheLoaded = false
                 const notificationStore = useNotificationStore()
                 notificationStore.showNotification({
                   type: 'success',
@@ -184,6 +242,7 @@ export const useCustomerStore = (useWindow = false) => {
                 (customer) => customer.id === id
               )
               this.customers.splice(index, 1)
+              this.allCustomersCacheLoaded = false
               notificationStore.showNotification({
                 type: 'success',
                 message: global.t('customers.deleted_message', 1),
@@ -210,6 +269,7 @@ export const useCustomerStore = (useWindow = false) => {
                 )
                 this.customers.splice(index, 1)
               })
+              this.allCustomersCacheLoaded = false
 
               notificationStore.showNotification({
                 type: 'success',

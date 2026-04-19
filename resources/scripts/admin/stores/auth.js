@@ -48,6 +48,10 @@ export const useAuthStore = (useWindow = false) => {
           axios
             .post('/auth/logout')
             .then((response) => {
+              Object.keys(localStorage)
+                .filter((key) => key.startsWith('invoiceshelf.bootstrap.'))
+                .forEach((key) => localStorage.removeItem(key))
+
               const notificationStore = useNotificationStore()
               notificationStore.showNotification({
                 type: 'success',

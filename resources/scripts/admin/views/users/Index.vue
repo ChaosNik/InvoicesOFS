@@ -3,7 +3,7 @@
     <!-- Page Header Section -->
     <BasePageHeader :title="$t('users.title')">
       <BaseBreadcrumb>
-        <BaseBreadcrumbItem :title="$t('general.home')" to="dashboard" />
+        <BaseBreadcrumbItem :title="$t('general.home')" to="/admin/dashboard" />
         <BaseBreadcrumbItem :title="$t('users.title', 2)" to="#" active />
       </BaseBreadcrumb>
 

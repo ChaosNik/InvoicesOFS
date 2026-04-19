@@ -12,6 +12,7 @@ export const useTaxTypeStore = (useWindow = false) => {
 
     state: () => ({
       taxTypes: [],
+      taxTypesLoaded: false,
       currentTaxType: {
         id: null,
         name: '',
@@ -46,10 +47,31 @@ export const useTaxTypeStore = (useWindow = false) => {
 
       fetchTaxTypes(params) {
         return new Promise((resolve, reject) => {
+          const requestParams = { ...(params || {}) }
+          delete requestParams.background
+
+          if (this.taxTypesLoaded && !requestParams.page) {
+            const search = (requestParams.search || '').toString().toLowerCase()
+            const data = search
+              ? this.taxTypes.filter((taxType) => {
+                  return (
+                    taxType.name?.toLowerCase().includes(search) ||
+                    taxType.ofs_label?.toLowerCase().includes(search)
+                  )
+                })
+              : this.taxTypes
+
+            resolve({ data: { data } })
+            return
+          }
+
           axios
-            .get(`/api/v1/tax-types`, { params })
+            .get(`/api/v1/tax-types`, { params: requestParams })
             .then((response) => {
               this.taxTypes = response.data.data
+              if (!requestParams.search && !requestParams.page) {
+                this.taxTypesLoaded = true
+              }
               resolve(response)
             })
             .catch((err) => {
@@ -81,6 +103,7 @@ export const useTaxTypeStore = (useWindow = false) => {
             .post('/api/v1/tax-types', data)
             .then((response) => {
               this.taxTypes.push(response.data.data)
+              this.taxTypesLoaded = false
               notificationStore.showNotification({
                 type: 'success',
                 message: global.t('settings.tax_types.created_message'),
@@ -105,6 +128,7 @@ export const useTaxTypeStore = (useWindow = false) => {
                   (taxTypes) => taxTypes.id === response.data.data.id
                 )
                 this.taxTypes[pos] = response.data.data
+                this.taxTypesLoaded = false
                 notificationStore.showNotification({
                   type: 'success',
                   message: global.t('settings.tax_types.updated_message'),
@@ -151,6 +175,7 @@ export const useTaxTypeStore = (useWindow = false) => {
                   (taxType) => taxType.id === id
                 )
                 this.taxTypes.splice(index, 1)
+                this.taxTypesLoaded = false
                 const notificationStore = useNotificationStore()
                 notificationStore.showNotification({
                   type: 'success',

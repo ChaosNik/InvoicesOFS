@@ -42,6 +42,7 @@ export const usePaymentStore = (useWindow = false) => {
       },
 
       paymentModes: [],
+      paymentModesLoaded: false,
       currentPaymentMode: {
         id: '',
         name: null,
@@ -332,10 +333,28 @@ export const usePaymentStore = (useWindow = false) => {
 
       fetchPaymentModes(params) {
         return new Promise((resolve, reject) => {
+          const requestParams = { ...(params || {}) }
+          delete requestParams.background
+
+          if (this.paymentModesLoaded && !requestParams.page) {
+            const search = (requestParams.search || '').toString().toLowerCase()
+            const data = search
+              ? this.paymentModes.filter((mode) =>
+                  mode.name?.toLowerCase().includes(search)
+                )
+              : this.paymentModes
+
+            resolve({ data: { data } })
+            return
+          }
+
           axios
-            .get(`/api/v1/payment-methods`, { params })
+            .get(`/api/v1/payment-methods`, { params: requestParams })
             .then((response) => {
               this.paymentModes = response.data.data
+              if (!requestParams.search && !requestParams.page) {
+                this.paymentModesLoaded = true
+              }
               resolve(response)
             })
             .catch((err) => {
@@ -367,6 +386,7 @@ export const usePaymentStore = (useWindow = false) => {
             .post(`/api/v1/payment-methods`, data)
             .then((response) => {
               this.paymentModes.push(response.data.data)
+              this.paymentModesLoaded = false
               notificationStore.showNotification({
                 type: 'success',
                 message: global.t('settings.payment_modes.payment_mode_added'),
@@ -391,6 +411,7 @@ export const usePaymentStore = (useWindow = false) => {
                   (paymentMode) => paymentMode.id === response.data.data.id
                 )
                 this.paymentModes[pos] = response.data.data
+                this.paymentModesLoaded = false
                 notificationStore.showNotification({
                   type: 'success',
                   message: global.t(
@@ -418,6 +439,7 @@ export const usePaymentStore = (useWindow = false) => {
                 (paymentMode) => paymentMode.id === id
               )
               this.paymentModes.splice(index, 1)
+              this.paymentModesLoaded = false
               if (response.data.success) {
                 notificationStore.showNotification({
                   type: 'success',

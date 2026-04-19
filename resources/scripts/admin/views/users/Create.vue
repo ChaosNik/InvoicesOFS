@@ -2,7 +2,7 @@
   <BasePage>
     <BasePageHeader :title="pageTitle">
       <BaseBreadcrumb>
-        <BaseBreadcrumbItem :title="$t('general.home')" to="dashboard" />
+        <BaseBreadcrumbItem :title="$t('general.home')" to="/admin/dashboard" />
         <BaseBreadcrumbItem :title="$t('users.user', 2)" to="/admin/users" />
         <BaseBreadcrumbItem :title="pageTitle" to="#" active />
       </BaseBreadcrumb>

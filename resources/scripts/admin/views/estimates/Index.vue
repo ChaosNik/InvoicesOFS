@@ -4,7 +4,7 @@
 
     <BasePageHeader :title="$t('estimates.title')">
       <BaseBreadcrumb>
-        <BaseBreadcrumbItem :title="$t('general.home')" to="dashboard" />
+        <BaseBreadcrumbItem :title="$t('general.home')" to="/admin/dashboard" />
 
         <BaseBreadcrumbItem
           :title="$t('estimates.estimate', 2)"

@@ -135,7 +135,7 @@
   "dashboard": {
     "select_year": "Odaberi godinu",
     "cards": {
-      "due_amount": "Dužan iznos",
+      "due_amount": "Iznos duga",
       "customers": "Klijenti",
       "invoices": "Fakture",
       "estimates": "Profakture",
@@ -289,7 +289,7 @@
     "item": "Stavka | Stavke",
     "add_new_item": "Dodaj novu stavku",
     "new_item": "Nova stavka",
-    "edit_item": "Izmeni stavku",
+    "edit_item": "Izmijeni stavku",
     "no_items": "Još uvek nema stavki!",
     "list_of_items": "Ova sekcija će da sadrži spisak stavki.",
     "select_a_unit": "odaberi jedinicu",

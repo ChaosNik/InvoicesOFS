@@ -3,7 +3,7 @@
     <!-- Page Header -->
     <BasePageHeader :title="$t('expenses.title')">
       <BaseBreadcrumb>
-        <BaseBreadcrumbItem :title="$t('general.home')" to="dashboard" />
+        <BaseBreadcrumbItem :title="$t('general.home')" to="/admin/dashboard" />
         <BaseBreadcrumbItem :title="$t('expenses.expense', 2)" to="#" active />
       </BaseBreadcrumb>
 

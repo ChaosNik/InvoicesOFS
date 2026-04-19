@@ -124,7 +124,7 @@
   "dashboard": {
     "select_year": "Odaberi godinu",
     "cards": {
-      "due_amount": "Dužan iznos",
+      "due_amount": "Iznos duga",
       "customers": "Klijent | Klijenti",
       "invoices": "Račun | Računi",
       "estimates": "Ponuda | Ponude",

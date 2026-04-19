@@ -487,7 +487,6 @@ async function searchCustomer() {
     page: 1,
   }
 
-  customerStore.$reset()
   await customerStore.fetchCustomers(data)
   isSearchingCustomer.value = false
 }

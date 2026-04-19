@@ -29,6 +29,10 @@ import { useUserStore } from '@/scripts/admin/stores/user'
 import { useModalStore } from '@/scripts/stores/modal'
 import { useExchangeRateStore } from '@/scripts/admin/stores/exchange-rate'
 import { useCompanyStore } from '@/scripts/admin/stores/company'
+import { useCustomerStore } from '@/scripts/admin/stores/customer'
+import { useItemStore } from '@/scripts/admin/stores/item'
+import { usePaymentStore } from '@/scripts/admin/stores/payment'
+import { useTaxTypeStore } from '@/scripts/admin/stores/tax-type'
 
 import SiteHeader from '@/scripts/admin/layouts/partials/TheSiteHeader.vue'
 import SiteSidebar from '@/scripts/admin/layouts/partials/TheSiteSidebar.vue'
@@ -43,12 +47,22 @@ const modalStore = useModalStore()
 const { t } = useI18n()
 const exchangeRateStore = useExchangeRateStore()
 const companyStore = useCompanyStore()
+const customerStore = useCustomerStore()
+const itemStore = useItemStore()
+const paymentStore = usePaymentStore()
+const taxTypeStore = useTaxTypeStore()
+
+globalStore.hydrateBootstrapCache()
 
 const isAppLoaded = computed(() => {
   return globalStore.isAppLoaded
 })
 
 onMounted(() => {
+  if (globalStore.isAppLoaded) {
+    warmMenuData()
+  }
+
   globalStore.bootstrap().then((res) => {
     if (route.meta.ability && !userStore.hasAbilities(route.meta.ability)) {
       router.push({ name: 'account.settings' })
@@ -77,6 +91,30 @@ onMounted(() => {
         }
       })
     }
+
+    warmMenuData()
   })
 })
+
+function warmMenuData() {
+  window.setTimeout(() => {
+    itemStore.fetchItems({
+      limit: 'all',
+      filter: {},
+      orderByField: '',
+      orderBy: '',
+      background: true,
+    }).catch(() => {})
+    itemStore.fetchItemUnits({ limit: 'all', background: true }).catch(() => {})
+    taxTypeStore.fetchTaxTypes({ limit: 'all', background: true }).catch(() => {})
+    paymentStore.fetchPaymentModes({ limit: 'all', background: true }).catch(() => {})
+    customerStore.fetchCustomers({
+      limit: 'all',
+      filter: {},
+      orderByField: '',
+      orderBy: '',
+      background: true,
+    }).catch(() => {})
+  }, 0)
+}
 </script>

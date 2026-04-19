@@ -12,7 +12,6 @@ use App\Models\Module;
 use App\Models\Setting;
 use App\Traits\GeneratesMenuTrait;
 use Illuminate\Http\Request;
-use Silber\Bouncer\BouncerFacade;
 
 class BootstrapController extends Controller
 {
@@ -27,10 +26,13 @@ class BootstrapController extends Controller
     {
         $current_user = $request->user();
         $current_user_settings = $current_user->getAllSettings();
+        $current_user_abilities = $current_user->getAbilities();
+        $is_owner = $current_user->isOwner();
+        $current_user->setAttribute('is_owner', $is_owner);
 
-        $main_menu = $this->generateMenu('main_menu', $current_user);
+        $main_menu = $this->generateMenu('main_menu', $current_user, $current_user_abilities, $is_owner);
 
-        $setting_menu = $this->generateMenu('setting_menu', $current_user);
+        $setting_menu = $this->generateMenu('setting_menu', $current_user, $current_user_abilities, $is_owner);
 
         $companies = $current_user->companies;
 
@@ -46,8 +48,6 @@ class BootstrapController extends Controller
             ? Currency::find($current_company_settings->get('currency'))
             : Currency::first();
 
-        BouncerFacade::refreshFor($current_user);
-
         $global_settings = Setting::getSettings([
             'api_token',
             'admin_portal_theme',
@@ -62,7 +62,7 @@ class BootstrapController extends Controller
         return response()->json([
             'current_user' => new UserResource($current_user),
             'current_user_settings' => $current_user_settings,
-            'current_user_abilities' => $current_user->getAbilities(),
+            'current_user_abilities' => $current_user_abilities,
             'companies' => CompanyResource::collection($companies),
             'current_company' => new CompanyResource($current_company),
             'current_company_settings' => $current_company_settings,

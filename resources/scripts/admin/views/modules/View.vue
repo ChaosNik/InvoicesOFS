@@ -3,7 +3,7 @@
   <BasePage v-else class="bg-white">
     <BasePageHeader :title="moduleData.name">
       <BaseBreadcrumb>
-        <BaseBreadcrumbItem :title="$t('general.home')" to="dashboard" />
+        <BaseBreadcrumbItem :title="$t('general.home')" to="/admin/dashboard" />
         <BaseBreadcrumbItem :title="$t('modules.title')" to="/admin/modules" />
         <BaseBreadcrumbItem :title="moduleData.name" to="#" active />
       </BaseBreadcrumb>

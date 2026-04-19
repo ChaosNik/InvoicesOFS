@@ -11,10 +11,13 @@ export const useItemStore = (useWindow = false) => {
     id: 'item',
     state: () => ({
       items: [],
+      allItemsCache: [],
+      allItemsCacheLoaded: false,
       totalItems: 0,
       selectAllField: false,
       selectedItems: [],
       itemUnits: [],
+      itemUnitsLoaded: false,
       currentItemUnit: {
         id: null,
         name: '',
@@ -47,11 +50,51 @@ export const useItemStore = (useWindow = false) => {
       },
       fetchItems(params) {
         return new Promise((resolve, reject) => {
+          const requestParams = { ...(params || {}) }
+          delete requestParams.background
+
+          const isSearchRequest =
+            Object.prototype.hasOwnProperty.call(requestParams, 'search') &&
+            !requestParams.page
+          const isAllLimit =
+            !requestParams.limit || requestParams.limit === 'all'
+          const isMenuRequest =
+            !requestParams.page &&
+            isAllLimit &&
+            (!requestParams.filter ||
+              Object.keys(requestParams.filter).length === 0) &&
+            !requestParams.orderByField &&
+            !requestParams.orderBy
+
+          if (isMenuRequest && !requestParams.search) {
+            requestParams.limit = 'all'
+          }
+
+          if ((isSearchRequest || isMenuRequest) && this.allItemsCacheLoaded) {
+            const search = (requestParams.search || '').toString().toLowerCase()
+            const data = search
+              ? this.allItemsCache.filter((item) => {
+                  return (
+                    item.name?.toLowerCase().includes(search) ||
+                    item.ofs_gtin?.toLowerCase().includes(search)
+                  )
+                })
+              : this.allItemsCache
+
+            resolve({ data: { data, meta: { item_total_count: data.length } } })
+            return
+          }
+
           axios
-            .get(`/api/v1/items`, { params })
+            .get(`/api/v1/items`, { params: requestParams })
             .then((response) => {
               this.items = response.data.data
               this.totalItems = response.data.meta.item_total_count
+
+              if (isMenuRequest && !requestParams.search) {
+                this.allItemsCache = response.data.data
+                this.allItemsCacheLoaded = true
+              }
 
               resolve(response)
             })
@@ -87,6 +130,7 @@ export const useItemStore = (useWindow = false) => {
               const notificationStore = useNotificationStore()
 
               this.items.push(response.data.data)
+              this.allItemsCacheLoaded = false
 
               notificationStore.showNotification({
                 type: 'success',
@@ -133,6 +177,7 @@ export const useItemStore = (useWindow = false) => {
                 )
 
                 this.items[pos] = data.item
+                this.allItemsCacheLoaded = false
 
                 notificationStore.showNotification({
                   type: 'success',
@@ -158,6 +203,7 @@ export const useItemStore = (useWindow = false) => {
             .then((response) => {
               let index = this.items.findIndex((item) => item.id === id)
               this.items.splice(index, 1)
+              this.allItemsCacheLoaded = false
 
               notificationStore.showNotification({
                 type: 'success',
@@ -186,6 +232,7 @@ export const useItemStore = (useWindow = false) => {
                 )
                 this.items.splice(index, 1)
               })
+              this.allItemsCacheLoaded = false
 
               notificationStore.showNotification({
                 type: 'success',
@@ -294,10 +341,28 @@ export const useItemStore = (useWindow = false) => {
 
       fetchItemUnits(params) {
         return new Promise((resolve, reject) => {
+          const requestParams = { ...(params || {}) }
+          delete requestParams.background
+
+          if (this.itemUnitsLoaded && !requestParams.page) {
+            const search = (requestParams.search || '').toString().toLowerCase()
+            const data = search
+              ? this.itemUnits.filter((unit) =>
+                  unit.name?.toLowerCase().includes(search)
+                )
+              : this.itemUnits
+
+            resolve({ data: { data } })
+            return
+          }
+
           axios
-            .get(`/api/v1/units`, { params })
+            .get(`/api/v1/units`, { params: requestParams })
             .then((response) => {
               this.itemUnits = response.data.data
+              if (!requestParams.search) {
+                this.itemUnitsLoaded = true
+              }
               resolve(response)
             })
             .catch((err) => {
