@@ -40,6 +40,17 @@
               />
             </BaseInputGroup>
 
+            <BaseInputGroup
+              :label="$t('items.ofs_gtin')"
+              :error="v$.ofs_gtin.$error && v$.ofs_gtin.$errors[0].$message"
+            >
+              <BaseInput
+                v-model="itemStore.currentItem.ofs_gtin"
+                :invalid="v$.ofs_gtin.$error"
+                @input="v$.ofs_gtin.$touch()"
+              />
+            </BaseInputGroup>
+
             <BaseInputGroup :label="$t('items.unit')">
               <BaseMultiselect
                 v-model="itemStore.currentItem.unit_id"
@@ -197,6 +208,16 @@ const rules = {
     maxLength: helpers.withMessage(
       t('validation.description_maxlength', { count: 255 }),
       maxLength(255)
+    ),
+  },
+  ofs_gtin: {
+    minLength: helpers.withMessage(
+      t('validation.ofs_gtin_min_length', { count: 8 }),
+      minLength(8)
+    ),
+    maxLength: helpers.withMessage(
+      t('validation.ofs_gtin_max_length', { count: 14 }),
+      maxLength(14)
     ),
   },
 }

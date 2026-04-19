@@ -34,6 +34,50 @@
                   @select="onSelectItem"
                 />
               </div>
+              <BaseInputGroup
+                class="mt-3 ml-7"
+                :label="$t('items.ofs_gtin')"
+                :error="v$.ofs_gtin.$error && v$.ofs_gtin.$errors[0].$message"
+              >
+                <BaseMultiselect
+                  v-model="ofsGtinSelect"
+                  :invalid="v$.ofs_gtin.$error"
+                  :content-loading="loading"
+                  :options="searchItemsByOfsGtin"
+                  :filter-results="false"
+                  :delay="300"
+                  :min-chars="0"
+                  :can-clear="false"
+                  :can-deselect="false"
+                  :create-tag="true"
+                  :placeholder="$t('items.ofs_gtin')"
+                  value-prop="ofs_gtin"
+                  label="ofs_gtin"
+                  track-by="ofs_gtin"
+                  object
+                  resolve-on-load
+                  searchable
+                  @search-change="onOfsGtinSearchChange"
+                  @close="selectItemByOfsGtin"
+                >
+                  <template #option="{ option }">
+                    <div class="flex flex-col">
+                      <span class="text-sm font-medium text-gray-900">
+                        {{ option.ofs_gtin }}
+                      </span>
+                      <span
+                        v-if="option.id"
+                        class="mt-0.5 text-xs text-gray-500"
+                      >
+                        {{ option.name }}
+                      </span>
+                      <span v-else class="mt-0.5 text-xs text-gray-500">
+                        {{ $t('general.use') }} {{ option.ofs_gtin }}
+                      </span>
+                    </div>
+                  </template>
+                </BaseMultiselect>
+              </BaseInputGroup>
             </td>
             <td class="px-5 py-4 text-right align-top">
               <BaseInput
@@ -188,6 +232,7 @@ import {
   between,
   maxLength,
   helpers,
+  minLength,
   minValue,
 } from '@vuelidate/validators'
 import useVuelidate from '@vuelidate/core'
@@ -264,6 +309,38 @@ const price = computed({
   },
 })
 
+const ofsGtinSelect = computed({
+  get: () => {
+    if (!props.itemData.ofs_gtin) {
+      return null
+    }
+
+    return {
+      id: props.itemData.item_id,
+      name: props.itemData.name,
+      ofs_gtin: props.itemData.ofs_gtin,
+    }
+  },
+  set: (value) => {
+    if (!value) {
+      ofsGtinSearch.value = ''
+      updateItemAttribute('ofs_gtin', '')
+      return
+    }
+
+    ofsGtinSearch.value = String(value.ofs_gtin ?? value).trim()
+
+    if (value.id) {
+      onSelectItem(value)
+      return
+    }
+
+    updateItemAttribute('ofs_gtin', value.ofs_gtin ?? value)
+  },
+})
+
+const ofsGtinSearch = ref('')
+
 const subtotal = computed(() => Math.round(props.itemData.price * props.itemData.quantity))
 
 const discount = computed({
@@ -324,6 +401,17 @@ const rules = {
     maxLength: helpers.withMessage(
       t('validation.price_maxlength'),
       maxLength(20)
+    ),
+  },
+  ofs_gtin: {
+    required: helpers.withMessage(t('validation.required'), required),
+    minLength: helpers.withMessage(
+      t('validation.ofs_gtin_min_length', { count: 8 }),
+      minLength(8)
+    ),
+    maxLength: helpers.withMessage(
+      t('validation.ofs_gtin_max_length', { count: 14 }),
+      maxLength(14)
     ),
   },
   discount_val: {
@@ -397,11 +485,18 @@ function searchVal(val) {
   updateItemAttribute('name', val)
 }
 
+function onOfsGtinSearchChange(val) {
+  if (val !== null && val !== undefined) {
+    ofsGtinSearch.value = String(val).trim()
+  }
+}
+
 function onSelectItem(itm) {
   props.store.$patch((state) => {
     state[props.storeProp].items[props.index].name = itm.name
     state[props.storeProp].items[props.index].price = itm.price
     state[props.storeProp].items[props.index].item_id = itm.id
+    state[props.storeProp].items[props.index].ofs_gtin = itm.ofs_gtin
     state[props.storeProp].items[props.index].description = itm.description
 
     if (itm.unit) {
@@ -425,6 +520,64 @@ function onSelectItem(itm) {
 
   itemStore.fetchItems()
   syncItemToStore()
+}
+
+async function searchItemsByOfsGtin(search) {
+  const query = search?.trim()
+
+  try {
+    const response = await itemStore.fetchItems(
+      query
+        ? { search: query, limit: 'all' }
+        : { limit: 'all' }
+    )
+
+    return response.data.data.filter((item) => item.ofs_gtin)
+  } catch (err) {
+    return []
+  }
+}
+
+async function selectItemByOfsGtin() {
+  const ofsGtin = (
+    ofsGtinSearch.value ||
+    props.store[props.storeProp].items[props.index].ofs_gtin ||
+    ''
+  ).trim()
+
+  if (!ofsGtin) {
+    return
+  }
+
+  updateItemAttribute('ofs_gtin', ofsGtin)
+
+  if (!ofsGtin || ofsGtin.length < 8 || ofsGtin.length > 14) {
+    return
+  }
+
+  if (
+    props.itemData.item_id &&
+    props.itemData.ofs_gtin === ofsGtin
+  ) {
+    return
+  }
+
+  try {
+    const response = await itemStore.fetchItems({
+      ofs_gtin: ofsGtin,
+      limit: 'all',
+    })
+
+    const item = response.data.data.find(
+      (item) => item.ofs_gtin === ofsGtin
+    )
+
+    if (item) {
+      onSelectItem(item)
+    }
+  } catch (err) {
+    return
+  }
 }
 
 function selectFixed() {

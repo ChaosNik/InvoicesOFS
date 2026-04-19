@@ -52,7 +52,7 @@ export default class InvoiceShelf {
 
     this.i18n = createI18n({
       legacy: false,
-      locale: 'en',
+      locale: 'sr',
       fallbackLocale: 'en',
       globalInjection: true,
       messages: this.messages,

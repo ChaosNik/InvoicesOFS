@@ -10,6 +10,7 @@ import * as Vuelidate from '@vuelidate/core'
 import.meta.glob([
   '../static/img/**',
   '../static/fonts/**',
+  '!../static/**/desktop.ini',
 ]);
 
 window.pinia = pinia

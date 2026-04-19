@@ -23,6 +23,7 @@ export const useItemStore = (useWindow = false) => {
         name: '',
         description: '',
         price: 0,
+        ofs_gtin: '',
         unit_id: '',
         unit: null,
         taxes: [],
@@ -38,6 +39,7 @@ export const useItemStore = (useWindow = false) => {
           name: '',
           description: '',
           price: 0,
+          ofs_gtin: '',
           unit_id: '',
           unit: null,
           taxes: [],
@@ -91,6 +93,24 @@ export const useItemStore = (useWindow = false) => {
                 message: global.t('items.created_message'),
               })
 
+              resolve(response)
+            })
+            .catch((err) => {
+              handleError(err)
+              reject(err)
+            })
+        })
+      },
+
+      importItems(data) {
+        return new Promise((resolve, reject) => {
+          axios
+            .post('/api/v1/items/import', data, {
+              headers: {
+                'Content-Type': 'multipart/form-data',
+              },
+            })
+            .then((response) => {
               resolve(response)
             })
             .catch((err) => {

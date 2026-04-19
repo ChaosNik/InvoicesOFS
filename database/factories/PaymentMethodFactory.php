@@ -22,6 +22,7 @@ class PaymentMethodFactory extends Factory
     {
         return [
             'name' => $this->faker->name(),
+            'ofs_payment_type' => 'Cash',
             'company_id' => User::find(1)->companies()->first()->id,
         ];
     }

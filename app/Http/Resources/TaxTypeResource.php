@@ -22,6 +22,7 @@ class TaxTypeResource extends JsonResource
             'type' => $this->type,
             'compound_tax' => $this->compound_tax,
             'collective_tax' => $this->collective_tax,
+            'ofs_label' => $this->ofs_label,
             'description' => $this->description,
             'company_id' => $this->company_id,
             'company' => $this->when($this->company()->exists(), function () {

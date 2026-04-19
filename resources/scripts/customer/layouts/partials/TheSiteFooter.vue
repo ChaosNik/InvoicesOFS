@@ -16,7 +16,7 @@
       bg-white
     "
   >
-    Powered by
+    {{ $t('mail_powered_by') }}
     <a
       href="http://bytefury.com/"
       target="_blank"

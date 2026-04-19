@@ -19,6 +19,9 @@ use App\Policies\ReportPolicy;
 use App\Policies\RolePolicy;
 use App\Policies\SettingsPolicy;
 use App\Policies\UserPolicy;
+use App\Services\Ofs\Contracts\OfsClient;
+use App\Services\Ofs\FakeOfsClient;
+use App\Services\Ofs\HttpOfsClient;
 use App\Space\InstallUtils;
 use Gate;
 use Illuminate\Support\Facades\Broadcast;
@@ -77,6 +80,17 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         BouncerModels::scope(new DefaultScope);
+
+        $this->app->bind(OfsClient::class, function () {
+            return match (config('ofs.driver')) {
+                'http' => new HttpOfsClient(
+                    config('ofs.base_url'),
+                    config('ofs.api_key'),
+                    config('ofs.timeout')
+                ),
+                default => new FakeOfsClient,
+            };
+        });
     }
 
     public function addMenus()

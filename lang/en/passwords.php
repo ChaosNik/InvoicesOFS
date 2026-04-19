@@ -18,5 +18,10 @@ return [
     'sent' => 'We have e-mailed your password reset link!',
     'token' => 'This password reset token is invalid.',
     'user' => "We can't find a user with that e-mail address.",
+    'reset_notification_subject' => 'Reset Password Notification',
+    'reset_notification_line' => 'Hello! You are receiving this email because we received a password reset request for your account.',
+    'reset_notification_action' => 'Reset Password',
+    'reset_notification_expire' => 'This password reset link will expire in :count minutes',
+    'reset_notification_no_action' => 'If you did not request a password reset, no further action is required.',
 
 ];

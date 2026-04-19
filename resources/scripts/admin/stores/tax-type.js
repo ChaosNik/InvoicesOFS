@@ -15,6 +15,7 @@ export const useTaxTypeStore = (useWindow = false) => {
       currentTaxType: {
         id: null,
         name: '',
+        ofs_label: '',
         calculation_type: 'percentage',
         percent: 0,
         fixed_amount: 0,
@@ -33,6 +34,7 @@ export const useTaxTypeStore = (useWindow = false) => {
         this.currentTaxType = {
           id: null,
           name: '',
+          ofs_label: '',
           calculation_type: 'percentage',
           percent: 0,
           fixed_amount: 0,
@@ -102,7 +104,7 @@ export const useTaxTypeStore = (useWindow = false) => {
                 let pos = this.taxTypes.findIndex(
                   (taxTypes) => taxTypes.id === response.data.data.id
                 )
-                this.taxTypes[pos] = data.taxTypes
+                this.taxTypes[pos] = response.data.data
                 notificationStore.showNotification({
                   type: 'success',
                   message: global.t('settings.tax_types.updated_message'),

@@ -25,6 +25,7 @@ class ItemFactory extends Factory
         return [
             'name' => $this->faker->name(),
             'description' => $this->faker->text(),
+            'ofs_gtin' => '12345678',
             'company_id' => User::find(1)->companies()->first()->id,
             'price' => $this->faker->randomDigitNotNull(),
             'unit_id' => Unit::factory(),

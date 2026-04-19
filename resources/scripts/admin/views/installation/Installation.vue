@@ -4,7 +4,7 @@
     <img
       id="logo-invoiceshelf"
       :src="getTickImage()"
-      alt="InvoiceShelf Logo"
+      :alt="$t('general.invoiceshelf_logo')"
       class="h-12 mb-5 md:mb-10"
     />
 

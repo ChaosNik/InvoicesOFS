@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Nwidart\Modules\Facades\Module;
 use Spatie\MediaLibrary\HasMedia;
@@ -41,12 +42,18 @@ class Invoice extends Model implements HasMedia
 
     public const STATUS_PAID = 'PAID';
 
+    public const DOCUMENT_TYPE_INVOICE = 'invoice';
+
+    public const DOCUMENT_TYPE_CREDIT_NOTE = 'credit_note';
+
     protected $dates = [
         'created_at',
         'updated_at',
         'deleted_at',
         'invoice_date',
         'due_date',
+        'fiscalized_at',
+        'referent_document_dt',
     ];
 
     protected $guarded = [
@@ -69,6 +76,8 @@ class Invoice extends Model implements HasMedia
             'discount' => 'float',
             'discount_val' => 'integer',
             'exchange_rate' => 'float',
+            'fiscalized_at' => 'datetime',
+            'referent_document_dt' => 'datetime',
         ];
     }
 
@@ -97,6 +106,21 @@ class Invoice extends Model implements HasMedia
         return $this->hasMany(Payment::class);
     }
 
+    public function ofsFiscalizations(): HasMany
+    {
+        return $this->hasMany(OfsFiscalization::class);
+    }
+
+    public function fiscalization(): HasOne
+    {
+        return $this->hasOne(OfsFiscalization::class)->latestOfMany();
+    }
+
+    public function fiscalPaymentMethod(): BelongsTo
+    {
+        return $this->belongsTo(PaymentMethod::class, 'fiscal_payment_method_id');
+    }
+
     public function currency(): BelongsTo
     {
         return $this->belongsTo(Currency::class);
@@ -117,9 +141,24 @@ class Invoice extends Model implements HasMedia
         return $this->belongsTo(RecurringInvoice::class);
     }
 
+    public function originalInvoice(): BelongsTo
+    {
+        return $this->belongsTo(Invoice::class, 'original_invoice_id');
+    }
+
+    public function creditNotes(): HasMany
+    {
+        return $this->hasMany(Invoice::class, 'original_invoice_id');
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'creator_id');
+    }
+
+    public function isCreditNote(): bool
+    {
+        return $this->document_type === self::DOCUMENT_TYPE_CREDIT_NOTE;
     }
 
     public function getInvoicePdfUrlAttribute()
@@ -138,6 +177,10 @@ class Invoice extends Model implements HasMedia
 
     public function getAllowEditAttribute()
     {
+        if ($this->fiscal_status === OfsFiscalization::STATUS_FISCALIZED) {
+            return false;
+        }
+
         $retrospective_edit = CompanySetting::getSetting('retrospective_edits', $this->company_id);
 
         $allowed = true;
@@ -264,6 +307,8 @@ class Invoice extends Model implements HasMedia
             };
         })->when($filters['paid_status'] ?? null, function ($query, $paidStatus) {
             $query->wherePaidStatus($paidStatus);
+        })->when($filters['document_type'] ?? null, function ($query, $documentType) {
+            $query->where('document_type', $documentType);
         })->when($filters['invoice_id'] ?? null, function ($query, $invoiceId) {
             $query->whereInvoice($invoiceId);
         })->when($filters['invoice_number'] ?? null, function ($query, $invoiceNumber) {
@@ -354,6 +399,7 @@ class Invoice extends Model implements HasMedia
             'items.fields.customField',
             'customer',
             'taxes',
+            'originalInvoice',
         ])
             ->find($invoice->id);
 
@@ -483,6 +529,24 @@ class Invoice extends Model implements HasMedia
         $exchange_rate = $invoice->exchange_rate;
 
         foreach ($invoiceItems as $invoiceItem) {
+            $invoiceItem = collect($invoiceItem)->only([
+                'name',
+                'description',
+                'discount_type',
+                'price',
+                'quantity',
+                'discount',
+                'discount_val',
+                'tax',
+                'total',
+                'item_id',
+                'unit_name',
+                'recurring_invoice_id',
+                'taxes',
+                'custom_fields',
+                'ofs_gtin',
+            ])->toArray();
+
             $invoiceItem['company_id'] = $invoice->company_id;
             $invoiceItem['exchange_rate'] = $exchange_rate;
             $invoiceItem['base_price'] = $invoiceItem['price'] * $exchange_rate;

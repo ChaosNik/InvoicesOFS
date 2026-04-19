@@ -48,7 +48,15 @@ class Item extends Model
 
     public function scopeWhereSearch($query, $search)
     {
-        return $query->where('items.name', 'LIKE', '%'.$search.'%');
+        return $query->where(function ($query) use ($search) {
+            $query->where('items.name', 'LIKE', '%'.$search.'%')
+                ->orWhere('items.ofs_gtin', 'LIKE', '%'.$search.'%');
+        });
+    }
+
+    public function scopeWhereOfsGtin($query, $ofsGtin)
+    {
+        return $query->where('items.ofs_gtin', $ofsGtin);
     }
 
     public function scopeWherePrice($query, $price)
@@ -77,6 +85,10 @@ class Item extends Model
 
         if ($filters->get('search')) {
             $query->whereSearch($filters->get('search'));
+        }
+
+        if ($filters->get('ofs_gtin')) {
+            $query->whereOfsGtin($filters->get('ofs_gtin'));
         }
 
         if ($filters->get('price')) {

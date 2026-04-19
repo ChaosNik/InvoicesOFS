@@ -10,7 +10,11 @@
 
     <BaseInputGrid class="col-span-12 lg:col-span-7">
       <BaseInputGroup
-        :label="$t('invoices.invoice_date')"
+        :label="
+          isCreditNote
+            ? $t('invoices.credit_note_date')
+            : $t('invoices.invoice_date')
+        "
         :content-loading="isLoading"
         required
         :error="v.invoice_date.$error && v.invoice_date.$errors[0].$message"
@@ -38,7 +42,11 @@
       </BaseInputGroup>
 
       <BaseInputGroup
-        :label="$t('invoices.invoice_number')"
+        :label="
+          isCreditNote
+            ? $t('invoices.credit_note_number')
+            : $t('invoices.invoice_number')
+        "
         :content-loading="isLoading"
         :error="v.invoice_number.$error && v.invoice_number.$errors[0].$message"
         required
@@ -47,6 +55,25 @@
           v-model="invoiceStore.newInvoice.invoice_number"
           :content-loading="isLoading"
           @input="v.invoice_number.$touch()"
+        />
+      </BaseInputGroup>
+
+      <BaseInputGroup
+        :label="$t('invoices.fiscal_payment_mode')"
+        :content-loading="isLoading"
+        :error="
+          v.fiscal_payment_method_id.$error &&
+          v.fiscal_payment_method_id.$errors[0].$message
+        "
+        required
+      >
+        <BaseSelectInput
+          v-model="invoiceStore.newInvoice.fiscal_payment_method_id"
+          :content-loading="isLoading"
+          :options="fiscalPaymentModes"
+          value-prop="id"
+          label-key="name"
+          @update:modelValue="v.fiscal_payment_method_id.$touch()"
         />
       </BaseInputGroup>
 
@@ -67,6 +94,7 @@ import { computed } from 'vue'
 import ExchangeRateConverter from '@/scripts/admin/components/estimate-invoice-common/ExchangeRateConverter.vue'
 import { useInvoiceStore } from '@/scripts/admin/stores/invoice'
 import { useCompanyStore } from '@/scripts/admin/stores/company'
+import { usePaymentStore } from '@/scripts/admin/stores/payment'
 
 const props = defineProps({
   v: {
@@ -81,10 +109,19 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  isCreditNote: {
+    type: Boolean,
+    default: false,
+  },
 })
 
 const invoiceStore = useInvoiceStore()
 const companyStore = useCompanyStore()
+const paymentStore = usePaymentStore()
+
+const fiscalPaymentModes = computed(() => {
+  return paymentStore.paymentModes.filter((mode) => mode.ofs_payment_type)
+})
 
 const enableTime = computed(() => {
   return (

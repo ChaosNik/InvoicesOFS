@@ -29,6 +29,12 @@
             active
           />
           <BaseBreadcrumbItem
+            v-else-if="$route.name === 'invoices.credit-note'"
+            :title="$t('invoices.new_credit_note')"
+            to="#"
+            active
+          />
+          <BaseBreadcrumbItem
             v-else
             :title="$t('invoices.new_invoice')"
             to="#"
@@ -62,7 +68,11 @@
                 :class="slotProps.class"
               />
             </template>
-            {{ $t('invoices.save_invoice') }}
+            {{
+              isCreditNote
+                ? $t('invoices.save_credit_note')
+                : $t('invoices.save_invoice')
+            }}
           </BaseButton>
         </template>
       </BasePageHeader>
@@ -72,7 +82,16 @@
         :v="v$"
         :is-loading="isLoadingContent"
         :is-edit="isEdit"
+        :is-credit-note="isCreditNote"
       />
+
+      <div
+        v-if="isCreditNote && invoiceStore.newInvoice.referent_document_number"
+        class="px-4 py-3 mx-0 mt-4 text-sm text-primary-900 border border-primary-100 rounded bg-primary-50"
+      >
+        {{ $t('invoices.credit_note_for_invoice') }}
+        <strong>{{ invoiceStore.newInvoice.referent_document_number }}</strong>
+      </div>
 
       <BaseScrollPane>
         <!-- Invoice Items -->
@@ -154,6 +173,7 @@ import { useModuleStore } from '@/scripts/admin/stores/module'
 import { useNotesStore } from '@/scripts/admin/stores/note'
 import { useCompanyStore } from '@/scripts/admin/stores/company'
 import { useCustomFieldStore } from '@/scripts/admin/stores/custom-field'
+import { useDialogStore } from '@/scripts/stores/dialog'
 
 import InvoiceItems from '@/scripts/admin/components/estimate-invoice-common/CreateItems.vue'
 import InvoiceTotal from '@/scripts/admin/components/estimate-invoice-common/CreateTotal.vue'
@@ -171,6 +191,7 @@ const companyStore = useCompanyStore()
 const customFieldStore = useCustomFieldStore()
 const moduleStore = useModuleStore()
 const notesStore = useNotesStore()
+const dialogStore = useDialogStore()
 
 const { t } = useI18n()
 let route = useRoute()
@@ -192,9 +213,21 @@ let isLoadingContent = computed(
   () => invoiceStore.isFetchingInvoice || invoiceStore.isFetchingInitialSettings
 )
 
-let pageTitle = computed(() =>
-  isEdit.value ? t('invoices.edit_invoice') : t('invoices.new_invoice')
-)
+let isEdit = computed(() => route.name === 'invoices.edit')
+
+let isCreditNote = computed(() => route.name === 'invoices.credit-note')
+
+let pageTitle = computed(() => {
+  if (isEdit.value) {
+    return t('invoices.edit_invoice')
+  }
+
+  if (isCreditNote.value) {
+    return t('invoices.new_credit_note')
+  }
+
+  return t('invoices.new_invoice')
+})
 
 const salesTaxEnabled = computed(() => {
   return (
@@ -202,8 +235,6 @@ const salesTaxEnabled = computed(() => {
     moduleStore.salesTaxUSEnabled
   )
 })
-
-let isEdit = computed(() => route.name === 'invoices.edit')
 
 const rules = {
   invoice_date: {
@@ -219,6 +250,9 @@ const rules = {
     required: helpers.withMessage(t('validation.required'), required),
   },
   invoice_number: {
+    required: helpers.withMessage(t('validation.required'), required),
+  },
+  fiscal_payment_method_id: {
     required: helpers.withMessage(t('validation.required'), required),
   },
   exchange_rate: {
@@ -261,6 +295,45 @@ watch(
   {immediate: true}
 )
 
+async function askToPrintInvoice(invoice) {
+  const shouldPrint = await dialogStore.openDialog({
+    title: isCreditNote.value
+      ? t('invoices.print_credit_note')
+      : t('invoices.print_invoice'),
+    message: isCreditNote.value
+      ? t('invoices.print_credit_note_now_message')
+      : t('invoices.print_invoice_now_message'),
+    yesLabel: t('invoices.print_now'),
+    noLabel: t('invoices.not_now'),
+    variant: 'primary',
+    hideNoButton: false,
+    size: 'md',
+  })
+
+  if (shouldPrint) {
+    printInvoice(invoice)
+  }
+}
+
+function printInvoice(invoice) {
+  const pdfUrl = invoice.invoice_pdf_url || `/invoices/pdf/${invoice.unique_hash}`
+  const printWindow = window.open(pdfUrl, '_blank')
+
+  if (!printWindow) {
+    return
+  }
+
+  printWindow.focus()
+
+  setTimeout(() => {
+    try {
+      printWindow.print()
+    } catch (error) {
+      console.error(error)
+    }
+  }, 1000)
+}
+
 async function submitForm() {
   v$.value.$touch()
 
@@ -289,10 +362,10 @@ async function submitForm() {
       data.discount = data.discount * 100
     }
   }
-    if (
-    !invoiceStore.newInvoice.tax_per_item === 'YES'
+  if (
+    invoiceStore.newInvoice.tax_per_item !== 'YES'
     && data.taxes.length
-  ){
+  ) {
     data.tax_type_ids = data.taxes.map(_t => _t.tax_type_id)
   }
 
@@ -302,12 +375,16 @@ async function submitForm() {
       : invoiceStore.addInvoice
 
     const response = await action(data)
+    const savedInvoice = response.data.data
 
-    router.push(`/admin/invoices/${response.data.data.id}/view`)
+    isSaving.value = false
+
+    await askToPrintInvoice(savedInvoice)
+
+    router.push(`/admin/invoices/${savedInvoice.id}/view`)
   } catch (err) {
     console.error(err)
+    isSaving.value = false
   }
-
-  isSaving.value = false
 }
 </script>

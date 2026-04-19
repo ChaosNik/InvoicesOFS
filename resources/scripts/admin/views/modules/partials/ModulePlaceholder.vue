@@ -26,10 +26,10 @@
         >
           <!-- Average Rating -->
           <div>
-            <h3 class="sr-only">Reviews</h3>
+            <h3 class="sr-only">{{ $t('modules.customer_reviews') }}</h3>
             <BaseContentPlaceholdersText class="w-32 h-8" :lines="1" />
 
-            <p class="sr-only">4 out of 5 stars</p>
+            <p class="sr-only">4 / 5</p>
           </div>
 
           <!-- Module Name and Version -->

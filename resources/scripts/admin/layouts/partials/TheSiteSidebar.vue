@@ -54,7 +54,7 @@
                 "
                 @click="globalStore.setSidebarVisibility(false)"
               >
-                <span class="sr-only">Close sidebar</span>
+                <span class="sr-only">{{ $t('general.close_sidebar') }}</span>
                 <BaseIcon
                   name="XMarkIcon"
                   class="w-6 h-6 text-white"
@@ -67,7 +67,7 @@
             <div class="flex items-center shrink-0 px-4 mb-10">
               <MainLogo
                 class="block h-auto max-w-full w-36 text-primary-400"
-                alt="InvoiceShelf Logo"
+                :alt="$t('general.invoiceshelf_logo')"
               />
             </div>
 
@@ -174,6 +174,16 @@ const route = useRoute()
 const globalStore = useGlobalStore()
 
 function hasActiveUrl(url) {
-  return route.path.indexOf(url) > -1
+  const [path, query] = url.split('?')
+
+  if (query === 'document_type=credit_note') {
+    return route.path === path && route.query.document_type === 'credit_note'
+  }
+
+  if (route.query.document_type === 'credit_note' && path === '/admin/invoices') {
+    return false
+  }
+
+  return route.path.indexOf(path) > -1
 }
 </script>

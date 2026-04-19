@@ -18,6 +18,7 @@ class PaymentMethodResource extends JsonResource
             'name' => $this->name,
             'company_id' => $this->company_id,
             'type' => $this->type,
+            'ofs_payment_type' => $this->ofs_payment_type,
             'company' => $this->when($this->company()->exists(), function () {
                 return new CompanyResource($this->company);
             }),

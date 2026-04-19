@@ -1,4 +1,3 @@
-I
 <template>
   <div class="h-screen overflow-y-auto min-h-0">
     <div class="bg-gradient-to-r from-primary-500 to-primary-400 h-5"></div>
@@ -16,6 +15,16 @@ I
       "
     >
       <BasePageHeader :title="pageTitle || ''">
+        <p
+          v-if="invoiceData?.fiscal_invoice_number"
+          class="mt-1 text-sm text-gray-500"
+        >
+          {{ $t('invoices.fiscal_receipt_number') }}:
+          <span class="font-medium text-gray-700">
+            {{ invoiceData.fiscal_invoice_number }}
+          </span>
+        </p>
+
         <template #actions>
           <div
             class="
@@ -63,7 +72,7 @@ I
         v-if="!customerLogo"
         class="flex items-center justify-center mt-4 text-gray-500 font-normal"
       >
-        Powered by
+        {{ $t('mail_powered_by') }}
         <a href="https://invoiceshelf.com" target="_blank">
           <img :src="getLogo()" class="h-4 ml-1 mb-1" />
         </a>

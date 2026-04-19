@@ -5,6 +5,7 @@ use App\Http\Requests\InvoicesRequest;
 use App\Mail\SendInvoiceMail;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
+use App\Models\OfsFiscalization;
 use App\Models\Tax;
 use App\Models\User;
 use Illuminate\Support\Facades\Artisan;
@@ -44,6 +45,8 @@ test('create invoice', function () {
     $response = postJson('api/v1/invoices', $invoice);
 
     $response->assertOk();
+    $response->assertJsonPath('data.fiscal_status', OfsFiscalization::STATUS_FISCALIZED);
+    expect($response->json('data.fiscal_invoice_number'))->toStartWith('FAKE-OFS-');
 
     $this->assertDatabaseHas('invoices', [
         'template_name' => $invoice['template_name'],
@@ -53,6 +56,12 @@ test('create invoice', function () {
         'customer_id' => $invoice['customer_id'],
         'total' => $invoice['total'],
         'tax' => $invoice['tax'],
+        'fiscal_status' => OfsFiscalization::STATUS_FISCALIZED,
+    ]);
+
+    $this->assertDatabaseHas('ofs_fiscalizations', [
+        'invoice_id' => $response->json('data.id'),
+        'status' => OfsFiscalization::STATUS_FISCALIZED,
     ]);
 
     $this->assertDatabaseHas('invoice_items', [
@@ -77,6 +86,7 @@ test('create invoice with negative and zero item quantities', function () {
                 'price' => 75,
             ]),
         ],
+        'taxes' => [Tax::factory()->raw()],
         'sub_total' => -150,
         'total' => -150,
     ]);
@@ -201,6 +211,8 @@ test('send invoice to customer', function () {
     $invoices = Invoice::factory()->create([
         'invoice_date' => '1988-07-18',
         'due_date' => '1988-08-18',
+        'fiscal_status' => OfsFiscalization::STATUS_FISCALIZED,
+        'fiscal_invoice_number' => 'FAKE-OFS-SEND',
     ]);
 
     $data = [

@@ -34,6 +34,22 @@
           </BaseInputGroup>
 
           <BaseInputGroup
+            :label="$t('tax_types.ofs_label')"
+            variant="horizontal"
+            :error="
+              v$.currentTaxType.ofs_label.$error &&
+              v$.currentTaxType.ofs_label.$errors[0].$message
+            "
+          >
+            <BaseInput
+              v-model="taxTypeStore.currentTaxType.ofs_label"
+              :invalid="v$.currentTaxType.ofs_label.$error"
+              type="text"
+              @input="v$.currentTaxType.ofs_label.$touch()"
+            />
+          </BaseInputGroup>
+
+          <BaseInputGroup
             :label="$t('tax_types.tax_type')"
             variant="horizontal"
             required
@@ -181,6 +197,12 @@ const rules = computed(() => {
       },
       calculation_type: {
         required: helpers.withMessage(t('validation.required'), required),
+      },
+      ofs_label: {
+        maxLength: helpers.withMessage(
+          t('validation.description_maxlength', { count: 16 }),
+          maxLength(16)
+        ),
       },
       percent: {
         required: helpers.withMessage(t('validation.required'), required),

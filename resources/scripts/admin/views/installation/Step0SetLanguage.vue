@@ -51,7 +51,7 @@ let isFetchingInitialData = ref(false)
 let isSaving = ref(false)
 let isChangingLanguage = ref(false)
 let languages = ref([])
-let currentLanguage = 'en'
+let currentLanguage = 'sr'
 
 const installationStore = useInstallationStore()
 

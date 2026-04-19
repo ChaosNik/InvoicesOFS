@@ -21,6 +21,7 @@ class InvoiceItemResource extends JsonResource
             'price' => $this->price,
             'quantity' => $this->quantity,
             'unit_name' => $this->unit_name,
+            'ofs_gtin' => $this->ofs_gtin,
             'discount' => $this->discount,
             'discount_val' => $this->discount_val,
             'tax' => $this->tax,

@@ -107,7 +107,7 @@ function setData() {
     selectedTemplate.value =
       modalStore.data.store[modalStore.data.storeProp].template_name
   } else {
-    selectedTemplate.value = modalStore.data.templates[0]
+    selectedTemplate.value = modalStore.data.templates[0]?.name || ''
   }
 }
 

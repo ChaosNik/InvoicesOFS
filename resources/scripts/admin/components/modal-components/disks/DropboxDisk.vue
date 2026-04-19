@@ -51,7 +51,7 @@
             v-model.trim="diskStore.dropBoxDiskConfig.root"
             type="text"
             name="name"
-            placeholder="Ex. /user/root/"
+            placeholder="Npr. /user/root/"
             :invalid="v$.dropBoxDiskConfig.root.$error"
             @input="v$.dropBoxDiskConfig.root.$touch()"
           />
@@ -86,7 +86,7 @@
             v-model.trim="diskStore.dropBoxDiskConfig.key"
             type="text"
             name="name"
-            placeholder="Ex. KEIS4S39SERSDS"
+            placeholder="Npr. KEIS4S39SERSDS"
             :invalid="v$.dropBoxDiskConfig.key.$error"
             @input="v$.dropBoxDiskConfig.key.$touch()"
           />
@@ -104,7 +104,7 @@
             v-model.trim="diskStore.dropBoxDiskConfig.secret"
             type="text"
             name="name"
-            placeholder="Ex. ********"
+            placeholder="Npr. ********"
             :invalid="v$.dropBoxDiskConfig.secret.$error"
             @input="v$.dropBoxDiskConfig.secret.$touch()"
           />

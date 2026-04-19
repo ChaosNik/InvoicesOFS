@@ -163,7 +163,7 @@ class Company extends Model implements HasMedia
 
         $super_admin = BouncerFacade::role()->firstOrCreate([
             'name' => 'super admin',
-            'title' => 'Super Admin',
+            'title' => 'Super administrator',
             'scope' => $this->id,
         ]);
 
@@ -174,10 +174,10 @@ class Company extends Model implements HasMedia
 
     public function setupDefaultPaymentMethods()
     {
-        PaymentMethod::create(['name' => 'Cash', 'company_id' => $this->id]);
-        PaymentMethod::create(['name' => 'Check', 'company_id' => $this->id]);
-        PaymentMethod::create(['name' => 'Credit Card', 'company_id' => $this->id]);
-        PaymentMethod::create(['name' => 'Bank Transfer', 'company_id' => $this->id]);
+        PaymentMethod::create(['name' => 'Gotovina', 'ofs_payment_type' => 'Cash', 'company_id' => $this->id]);
+        PaymentMethod::create(['name' => 'Ček', 'ofs_payment_type' => 'Other', 'company_id' => $this->id]);
+        PaymentMethod::create(['name' => 'Kartica', 'ofs_payment_type' => 'Card', 'company_id' => $this->id]);
+        PaymentMethod::create(['name' => 'Bankovni transfer', 'ofs_payment_type' => 'WireTransfer', 'company_id' => $this->id]);
     }
 
     public function setupDefaultUnits()
@@ -192,7 +192,7 @@ class Company extends Model implements HasMedia
         Unit::create(['name' => 'km', 'company_id' => $this->id]);
         Unit::create(['name' => 'lb', 'company_id' => $this->id]);
         Unit::create(['name' => 'mg', 'company_id' => $this->id]);
-        Unit::create(['name' => 'pc', 'company_id' => $this->id]);
+        Unit::create(['name' => 'kom', 'company_id' => $this->id]);
     }
 
     public function setupDefaultSettings()
@@ -221,9 +221,13 @@ class Company extends Model implements HasMedia
             'estimate_billing_address_format' => $billingAddressFormat,
             'payment_company_address_format' => $companyAddressFormat,
             'payment_from_customer_address_format' => $paymentFromCustomerAddress,
-            'currency' => request()->currency ?? 13,
+            'swift_bank_name' => '',
+            'swift_account_number' => '',
+            'swift_iban' => '',
+            'swift_bic' => '',
+            'currency' => request()->currency ?? Currency::where('code', 'BAM')->value('id') ?? 13,
             'time_zone' => 'Asia/Kolkata',
-            'language' => 'en',
+            'language' => 'sr',
             'fiscal_year' => '1-12',
             'carbon_date_format' => 'Y/m/d',
             'moment_date_format' => 'YYYY/MM/DD',

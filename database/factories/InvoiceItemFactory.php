@@ -30,6 +30,9 @@ class InvoiceItemFactory extends Factory
             'description' => function (array $item) {
                 return Item::find($item['item_id'])->description;
             },
+            'ofs_gtin' => function (array $item) {
+                return Item::find($item['item_id'])->ofs_gtin ?? '12345678';
+            },
             'price' => function (array $item) {
                 return Item::find($item['item_id'])->price;
             },

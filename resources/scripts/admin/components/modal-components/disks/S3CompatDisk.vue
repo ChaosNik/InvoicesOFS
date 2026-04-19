@@ -69,7 +69,7 @@
             v-model.trim="diskStore.s3CompatDiskConfigData.root"
             type="text"
             name="root"
-            placeholder="Ex. /user/root/"
+            placeholder="Npr. /user/root/"
             :invalid="v$.s3CompatDiskConfigData.root.$error"
             @input="v$.s3CompatDiskConfigData.root.$touch()"
           />
@@ -87,7 +87,7 @@
             v-model.trim="diskStore.s3CompatDiskConfigData.key"
             type="text"
             name="key"
-            placeholder="Ex. KEIS4S39SERSDS"
+            placeholder="Npr. KEIS4S39SERSDS"
             :invalid="v$.s3CompatDiskConfigData.key.$error"
             @input="v$.s3CompatDiskConfigData.key.$touch()"
           />
@@ -105,7 +105,7 @@
             v-model.trim="diskStore.s3CompatDiskConfigData.secret"
             type="text"
             name="secret"
-            placeholder="Ex. ********"
+            placeholder="Npr. ********"
             :invalid="v$.s3CompatDiskConfigData.secret.$error"
             @input="v$.s3CompatDiskConfigData.secret.$touch()"
           />
@@ -123,7 +123,7 @@
             v-model.trim="diskStore.s3CompatDiskConfigData.region"
             type="text"
             name="region"
-            placeholder="Ex. us-west"
+            placeholder="Npr. us-west"
             :invalid="v$.s3CompatDiskConfigData.region.$error"
             @input="v$.s3CompatDiskConfigData.region.$touch()"
           />
@@ -141,7 +141,7 @@
             v-model.trim="diskStore.s3CompatDiskConfigData.bucket"
             type="text"
             name="bucket"
-            placeholder="Ex. AppName"
+            placeholder="Npr. AppName"
             :invalid="v$.s3CompatDiskConfigData.bucket.$error"
             @input="v$.s3CompatDiskConfigData.bucket.$touch()"
           />

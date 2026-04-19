@@ -1,7 +1,9 @@
 import en from './en.json'
+import sr from './sr.json'
 
-// Only load English by default to reduce initial bundle size
-// Other languages will be loaded dynamically when needed
+// Load Serbian by default for the local Bosnian ijekavian setup.
+// Other languages can still be loaded dynamically when needed.
 export default {
-  en
+  en,
+  sr,
 }

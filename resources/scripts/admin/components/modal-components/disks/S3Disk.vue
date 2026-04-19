@@ -51,7 +51,7 @@
             v-model.trim="diskStore.s3DiskConfigData.root"
             type="text"
             name="name"
-            placeholder="Ex. /user/root/"
+            placeholder="Npr. /user/root/"
             :invalid="v$.s3DiskConfigData.root.$error"
             @input="v$.s3DiskConfigData.root.$touch()"
           />
@@ -69,7 +69,7 @@
             v-model.trim="diskStore.s3DiskConfigData.key"
             type="text"
             name="name"
-            placeholder="Ex. KEIS4S39SERSDS"
+            placeholder="Npr. KEIS4S39SERSDS"
             :invalid="v$.s3DiskConfigData.key.$error"
             @input="v$.s3DiskConfigData.key.$touch()"
           />
@@ -87,7 +87,7 @@
             v-model.trim="diskStore.s3DiskConfigData.secret"
             type="text"
             name="name"
-            placeholder="Ex. ********"
+            placeholder="Npr. ********"
             :invalid="v$.s3DiskConfigData.secret.$error"
             @input="v$.s3DiskConfigData.secret.$touch()"
           />
@@ -105,7 +105,7 @@
             v-model.trim="diskStore.s3DiskConfigData.region"
             type="text"
             name="name"
-            placeholder="Ex. us-west"
+            placeholder="Npr. us-west"
             :invalid="v$.s3DiskConfigData.region.$error"
             @input="v$.s3DiskConfigData.region.$touch()"
           />
@@ -123,7 +123,7 @@
             v-model.trim="diskStore.s3DiskConfigData.bucket"
             type="text"
             name="name"
-            placeholder="Ex. AppName"
+            placeholder="Npr. AppName"
             :invalid="v$.s3DiskConfigData.bucket.$error"
             @input="v$.s3DiskConfigData.bucket.$touch()"
           />

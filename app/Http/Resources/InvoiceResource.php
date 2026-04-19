@@ -19,8 +19,18 @@ class InvoiceResource extends JsonResource
             'due_date' => $this->due_date,
             'invoice_number' => $this->invoice_number,
             'reference_number' => $this->reference_number,
+            'document_type' => $this->document_type,
+            'original_invoice_id' => $this->original_invoice_id,
+            'referent_document_number' => $this->referent_document_number,
+            'referent_document_dt' => $this->referent_document_dt,
+            'credit_note_reason' => $this->credit_note_reason,
             'status' => $this->status,
             'paid_status' => $this->paid_status,
+            'fiscal_status' => $this->fiscal_status,
+            'fiscal_invoice_number' => $this->fiscal_invoice_number,
+            'fiscalized_at' => $this->fiscalized_at,
+            'fiscal_verification_url' => $this->fiscal_verification_url,
+            'fiscal_payment_method_id' => $this->fiscal_payment_method_id,
             'tax_per_item' => $this->tax_per_item,
             'tax_included' => $this->tax_included,
             'discount_per_item' => $this->discount_per_item,
@@ -76,6 +86,9 @@ class InvoiceResource extends JsonResource
             }),
             'currency' => $this->when($this->currency()->exists(), function () {
                 return new CurrencyResource($this->currency);
+            }),
+            'original_invoice' => $this->when($this->originalInvoice()->exists(), function () {
+                return new InvoiceResource($this->originalInvoice);
             }),
         ];
     }

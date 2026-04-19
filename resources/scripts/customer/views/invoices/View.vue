@@ -1,6 +1,16 @@
 <template>
   <BasePage class="xl:pl-96">
     <BasePageHeader :title="pageTitle.invoice_number">
+      <p
+        v-if="invoice.fiscal_invoice_number"
+        class="mt-1 text-sm text-gray-500"
+      >
+        {{ $t('invoices.fiscal_receipt_number') }}:
+        <span class="font-medium text-gray-700">
+          {{ invoice.fiscal_invoice_number }}
+        </span>
+      </p>
+
       <template #actions>
         <BaseButton
           :disabled="isSendingEmail"
@@ -56,7 +66,7 @@
           </template>
         </BaseInput>
 
-        <div class="flex ml-3" role="group" aria-label="First group">
+        <div class="flex ml-3" role="group" :aria-label="$t('general.action_group')">
           <BaseDropdown
             position="bottom-start"
             width-class="w-50"

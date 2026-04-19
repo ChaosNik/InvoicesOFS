@@ -8,8 +8,7 @@ export const handleError = (err) => {
   if (!err.response) {
     notificationStore.showNotification({
       type: 'error',
-      message:
-        'Please check your internet connection or wait until servers are back online.',
+      message: window.i18n.global.t('errors.network_unavailable'),
     })
   } else {
     if (
@@ -20,9 +19,9 @@ export const handleError = (err) => {
       // Unauthorized and log out
       const msg = err.response.data.message
         ? err.response.data.message
-        : 'Unauthorized'
+        : 'errors.unauthorized'
 
-      showToaster(msg)
+      showToaster(msg, msg !== 'errors.unauthorized' ? false : true)
 
       authStore.logout()
     } else if (err.response.data.errors) {

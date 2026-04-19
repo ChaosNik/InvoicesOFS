@@ -16,6 +16,21 @@ import { useCompanyStore } from './company'
 import { useItemStore } from './item'
 import { useUserStore } from './user'
 import { useNotesStore } from './note'
+import { usePaymentStore } from './payment'
+
+function normalizeYesNoSetting(value) {
+  return value === true || value === 1 || value === '1' || value === 'YES'
+    ? 'YES'
+    : 'NO'
+}
+
+function usesItemTaxes(value) {
+  return normalizeYesNoSetting(value) === 'YES'
+}
+
+function hasOfsLabel(taxType) {
+  return String(taxType?.ofs_label ?? '').trim() !== ''
+}
 
 export const useInvoiceStore = (useWindow = false) => {
   const defineStoreFunc = useWindow ? window.pinia.defineStore : defineStore
@@ -74,10 +89,7 @@ export const useInvoiceStore = (useWindow = false) => {
       },
 
       getTotalTax() {
-        if (
-          this.newInvoice.tax_per_item === 'NO' ||
-          this.newInvoice.tax_per_item === null
-        ) {
+        if (!usesItemTaxes(this.newInvoice.tax_per_item)) {
           return this.getTotalSimpleTax + this.getTotalCompoundTax
         }
         return _.sumBy(this.newInvoice.items, function (tax) {
@@ -154,8 +166,14 @@ export const useInvoiceStore = (useWindow = false) => {
 
       setInvoiceData(invoice) {
         Object.assign(this.newInvoice, invoice)
+        this.newInvoice.tax_per_item = normalizeYesNoSetting(
+          this.newInvoice.tax_per_item
+        )
+        this.newInvoice.discount_per_item = normalizeYesNoSetting(
+          this.newInvoice.discount_per_item
+        )
 
-        if (this.newInvoice.tax_per_item === 'YES') {
+        if (usesItemTaxes(this.newInvoice.tax_per_item)) {
           this.newInvoice.items.forEach((_i) => {
             if (_i.taxes && !_i.taxes.length)
               _i.taxes.push({ ...taxStub, id: Guid.raw() })
@@ -171,6 +189,66 @@ export const useInvoiceStore = (useWindow = false) => {
           if (this.newInvoice.discount_type === 'fixed')
             this.newInvoice.discount = this.newInvoice.discount / 100
         }
+      },
+
+      setCreditNoteData(sourceInvoice) {
+        const invoiceNumber = this.newInvoice.invoice_number
+        const templateName =
+          this.newInvoice.template_name || sourceInvoice.template_name
+        const invoiceDate = this.newInvoice.invoice_date
+        const dueDate = this.newInvoice.due_date
+        const fiscalPaymentMethodId =
+          sourceInvoice.fiscal_payment_method_id ||
+          this.newInvoice.fiscal_payment_method_id
+
+        this.newInvoice = {
+          ...invoiceStub(),
+          document_type: 'credit_note',
+          original_invoice_id: sourceInvoice.id,
+          referent_document_number: sourceInvoice.fiscal_invoice_number,
+          referent_document_dt: sourceInvoice.fiscalized_at,
+          credit_note_reason: '',
+          invoice_number: invoiceNumber,
+          template_name: templateName,
+          invoice_date: invoiceDate,
+          due_date: dueDate,
+          customer: sourceInvoice.customer,
+          customer_id: sourceInvoice.customer_id,
+          selectedCurrency: sourceInvoice.customer?.currency,
+          fiscal_payment_method_id: fiscalPaymentMethodId,
+          tax_per_item: normalizeYesNoSetting(sourceInvoice.tax_per_item),
+          tax_included: sourceInvoice.tax_included,
+          sales_tax_type: sourceInvoice.sales_tax_type,
+          sales_tax_address_type: sourceInvoice.sales_tax_address_type,
+          discount_per_item: normalizeYesNoSetting(
+            sourceInvoice.discount_per_item
+          ),
+          discount_type: sourceInvoice.discount_type,
+          discount:
+            sourceInvoice.discount_type === 'fixed'
+              ? sourceInvoice.discount / 100
+              : sourceInvoice.discount,
+          discount_val: sourceInvoice.discount_val,
+          taxes: (sourceInvoice.taxes || []).map((tax) => ({
+            ...tax,
+            id: Guid.raw(),
+          })),
+          items: (sourceInvoice.items || []).map((item) => ({
+            ...item,
+            id: Guid.raw(),
+            invoice_id: null,
+            discount:
+              item.discount_type === 'fixed' ? item.discount / 100 : item.discount,
+            taxes: (item.taxes || []).map((tax) => ({
+              ...tax,
+              id: Guid.raw(),
+            })),
+          })),
+          customFields: [],
+          fields: [],
+        }
+
+        this.setCustomerAddresses(sourceInvoice.customer)
       },
 
       setCustomerAddresses(customer) {
@@ -229,7 +307,10 @@ export const useInvoiceStore = (useWindow = false) => {
 
               notificationStore.showNotification({
                 type: 'success',
-                message: global.t('invoices.created_message'),
+                message:
+                  data.document_type === 'credit_note'
+                    ? global.t('invoices.credit_note_created_message')
+                    : global.t('invoices.created_message'),
               })
 
               resolve(response)
@@ -454,6 +535,52 @@ export const useInvoiceStore = (useWindow = false) => {
         this.newInvoice.customer_id = null
       },
 
+      ensureDefaultOfsTax(taxTypes = []) {
+        if (usesItemTaxes(this.newInvoice.tax_per_item)) {
+          return
+        }
+
+        const selectedTaxes = this.newInvoice.taxes.filter(
+          (tax) => Number(tax.tax_type_id) > 0
+        )
+
+        if (selectedTaxes.length) {
+          return
+        }
+
+        const defaultTax = taxTypes.find(hasOfsLabel)
+
+        if (!defaultTax) {
+          return
+        }
+
+        let amount = 0
+
+        if (
+          defaultTax.calculation_type === 'percentage' &&
+          this.getSubtotalWithDiscount &&
+          defaultTax.percent
+        ) {
+          amount = Math.round(
+            (this.getSubtotalWithDiscount * defaultTax.percent) / 100
+          )
+        } else if (defaultTax.calculation_type === 'fixed') {
+          amount = defaultTax.fixed_amount
+        }
+
+        this.newInvoice.taxes.push({
+          ...taxStub,
+          id: Guid.raw(),
+          name: defaultTax.name,
+          percent: defaultTax.percent,
+          tax_type_id: defaultTax.id,
+          amount,
+          calculation_type: defaultTax.calculation_type,
+          fixed_amount: defaultTax.fixed_amount,
+          compound_tax: defaultTax.compound_tax,
+        })
+      },
+
       addItem() {
         this.newInvoice.items.push({
           ...invoiceItemStub,
@@ -487,93 +614,119 @@ export const useInvoiceStore = (useWindow = false) => {
         const companyStore = useCompanyStore()
         const customerStore = useCustomerStore()
         const itemStore = useItemStore()
+        const paymentStore = usePaymentStore()
         const taxTypeStore = useTaxTypeStore()
         const route = useRoute()
         const userStore = useUserStore()
         const notesStore = useNotesStore()
+        const isCreditNote = route.name === 'invoices.credit-note'
 
         this.isFetchingInitialSettings = true
 
-        this.newInvoice.selectedCurrency = companyStore.selectedCompanyCurrency
+        try {
+          this.newInvoice.selectedCurrency = companyStore.selectedCompanyCurrency
 
-        if (route.query.customer) {
-          let response = await customerStore.fetchCustomer(route.query.customer)
-          this.newInvoice.customer = response.data.data
-          this.newInvoice.customer_id = response.data.data.id
-        }
-
-        let editActions = []
-
-        if (!isEdit) {
-          await notesStore.fetchNotes()
-          this.newInvoice.notes =
-            notesStore.getDefaultNoteForType('Invoice')?.notes
-          this.newInvoice.tax_per_item =
-            companyStore.selectedCompanySettings.tax_per_item
-          this.newInvoice.sales_tax_type =
-            companyStore.selectedCompanySettings.sales_tax_type
-          this.newInvoice.sales_tax_address_type =
-            companyStore.selectedCompanySettings.sales_tax_address_type
-          this.newInvoice.discount_per_item =
-            companyStore.selectedCompanySettings.discount_per_item
-
-          let dateFormat = 'YYYY-MM-DD'
-          if (companyStore.selectedCompanySettings.invoice_use_time === 'YES') {
-            dateFormat += ' HH:mm'
+          if (route.query.customer && !isCreditNote) {
+            let response = await customerStore.fetchCustomer(route.query.customer)
+            this.newInvoice.customer = response.data.data
+            this.newInvoice.customer_id = response.data.data.id
           }
 
-          this.newInvoice.invoice_date = moment().format(dateFormat)
-          if (
-            companyStore.selectedCompanySettings
-              .invoice_set_due_date_automatically === 'YES'
-          ) {
-            this.newInvoice.due_date = moment()
-              .add(
-                companyStore.selectedCompanySettings.invoice_due_date_days,
-                'days',
+          const editInvoiceRequest = isEdit
+            ? this.fetchInvoice(route.params.id)
+            : Promise.resolve(null)
+
+          if (!isEdit) {
+            await notesStore.fetchNotes()
+            this.newInvoice.notes =
+              notesStore.getDefaultNoteForType('Invoice')?.notes
+            this.newInvoice.tax_per_item = normalizeYesNoSetting(
+              companyStore.selectedCompanySettings.tax_per_item
+            )
+            this.newInvoice.sales_tax_type =
+              companyStore.selectedCompanySettings.sales_tax_type
+            this.newInvoice.sales_tax_address_type =
+              companyStore.selectedCompanySettings.sales_tax_address_type
+            this.newInvoice.discount_per_item = normalizeYesNoSetting(
+              companyStore.selectedCompanySettings.discount_per_item
+            )
+
+            let dateFormat = 'YYYY-MM-DD'
+            if (companyStore.selectedCompanySettings.invoice_use_time === 'YES') {
+              dateFormat += ' HH:mm'
+            }
+
+            this.newInvoice.invoice_date = moment().format(dateFormat)
+            if (
+              companyStore.selectedCompanySettings
+                .invoice_set_due_date_automatically === 'YES'
+            ) {
+              this.newInvoice.due_date = moment()
+                .add(
+                  companyStore.selectedCompanySettings.invoice_due_date_days,
+                  'days',
+                )
+                .format('YYYY-MM-DD')
+            }
+          }
+
+          const sourceInvoiceRequest = isCreditNote
+            ? axios.get(`/api/v1/invoices/${route.params.id}`)
+            : Promise.resolve(null)
+
+          const [res1, res2, res3, res4, res5, res6, res7, sourceInvoiceResponse] = await Promise.all([
+            itemStore.fetchItems({
+              filter: {},
+              orderByField: '',
+              orderBy: '',
+            }),
+            this.resetSelectedNote(),
+            this.fetchInvoiceTemplates(),
+            this.getNextNumber(),
+            taxTypeStore.fetchTaxTypes({ limit: 'all' }),
+            paymentStore.fetchPaymentModes({ limit: 'all' }),
+            editInvoiceRequest,
+            sourceInvoiceRequest,
+          ])
+
+          if (!isEdit) {
+            if (res4.data) {
+              this.newInvoice.invoice_number = res4.data.nextNumber
+            }
+
+            if (res3.data && this.templates[0]?.name) {
+              const defaultTemplate =
+                userStore.currentUserSettings.default_invoice_template ||
+                'invoice1'
+              const templateExists = this.templates.some(
+                (template) => template.name === defaultTemplate
               )
-              .format('YYYY-MM-DD')
+
+              this.setTemplate(
+                templateExists ? defaultTemplate : this.templates[0].name
+              )
+            }
+
+            const fiscalPaymentMode = paymentStore.paymentModes.find(
+              (mode) => mode.ofs_payment_type
+            )
+            this.newInvoice.fiscal_payment_method_id =
+              fiscalPaymentMode?.id ?? null
+
+            if (isCreditNote && sourceInvoiceResponse?.data?.data) {
+              this.setCreditNoteData(sourceInvoiceResponse.data.data)
+            } else {
+              this.ensureDefaultOfsTax(taxTypeStore.taxTypes)
+            }
           }
-        } else {
-          editActions = [this.fetchInvoice(route.params.id)]
+          if (isEdit) {
+            this.addSalesTaxUs()
+          }
+        } catch (err) {
+          handleError(err)
+        } finally {
+          this.isFetchingInitialSettings = false
         }
-
-        Promise.all([
-          itemStore.fetchItems({
-            filter: {},
-            orderByField: '',
-            orderBy: '',
-          }),
-          this.resetSelectedNote(),
-          this.fetchInvoiceTemplates(),
-          this.getNextNumber(),
-          taxTypeStore.fetchTaxTypes({ limit: 'all' }),
-          ...editActions,
-        ])
-          .then(async ([res1, res2, res3, res4, res5, res6]) => {
-            if (!isEdit) {
-              if (res4.data) {
-                this.newInvoice.invoice_number = res4.data.nextNumber
-              }
-
-              if (res3.data) {
-                this.setTemplate(this.templates[0].name)
-                this.newInvoice.template_name = userStore.currentUserSettings
-                  .default_invoice_template
-                  ? userStore.currentUserSettings.default_invoice_template
-                  : this.newInvoice.template_name
-              }
-            }
-            if (isEdit) {
-              this.addSalesTaxUs()
-            }
-
-            this.isFetchingInitialSettings = false
-          })
-          .catch((err) => {
-            handleError(err)
-            reject(err)
-          })
       },
     },
   })()

@@ -1,6 +1,8 @@
 <template>
   <RadioGroup v-model="selected">
-    <RadioGroupLabel class="sr-only"> Privacy setting </RadioGroupLabel>
+    <RadioGroupLabel class="sr-only">
+      {{ $t('general.privacy_setting') }}
+    </RadioGroupLabel>
     <div class="-space-y-px rounded-md">
       <RadioGroupOption
         :id="id"

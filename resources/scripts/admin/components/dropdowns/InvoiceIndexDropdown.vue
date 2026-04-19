@@ -99,6 +99,20 @@
       {{ $t('invoices.clone_invoice') }}
     </BaseDropdownItem>
 
+    <!-- Create credit note  -->
+    <router-link
+      v-if="canCreateCreditNote(row)"
+      :to="`/admin/invoices/${row.id}/credit-note`"
+    >
+      <BaseDropdownItem>
+        <BaseIcon
+          name="ArrowUturnLeftIcon"
+          class="w-5 h-5 mr-3 text-gray-400 group-hover:text-gray-500"
+        />
+        {{ $t('invoices.create_credit_note') }}
+      </BaseDropdownItem>
+    </router-link>
+
     <!--  Delete Invoice  -->
     <BaseDropdownItem
       v-if="userStore.hasAbilities(abilities.DELETE_INVOICE)"
@@ -162,6 +176,15 @@ function canSendInvoice(row) {
     row.status == 'DRAFT' &&
     route.name !== 'invoices.view' &&
     userStore.hasAbilities(abilities.SEND_INVOICE)
+  )
+}
+
+function canCreateCreditNote(row) {
+  return (
+    row.document_type !== 'credit_note' &&
+    row.fiscal_status === 'FISCALIZED' &&
+    row.fiscal_invoice_number &&
+    userStore.hasAbilities(abilities.CREATE_INVOICE)
   )
 }
 

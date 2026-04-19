@@ -4,11 +4,14 @@ use App\Http\Controllers\V1\Admin\Item\ItemsController;
 use App\Http\Requests\ItemsRequest;
 use App\Models\Item;
 use App\Models\Tax;
+use App\Models\TaxType;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
 use Laravel\Sanctum\Sanctum;
 
 use function Pest\Laravel\getJson;
+use function Pest\Laravel\post;
 use function Pest\Laravel\postJson;
 use function Pest\Laravel\putJson;
 
@@ -142,6 +145,48 @@ test('search items', function () {
     $response->assertOk();
 });
 
+test('search items by OFS GTIN', function () {
+    $matchingItem = Item::factory()->create([
+        'name' => 'Coffee Beans',
+        'ofs_gtin' => '9876543210123',
+    ]);
+    $otherItem = Item::factory()->create([
+        'name' => 'Tea Leaves',
+        'ofs_gtin' => '11112222',
+    ]);
+
+    $response = getJson('api/v1/items?search=9876543210123&limit=all');
+
+    $response->assertOk();
+
+    $itemIds = collect($response->json('data'))->pluck('id');
+
+    expect($itemIds)
+        ->toContain($matchingItem->id)
+        ->not->toContain($otherItem->id);
+});
+
+test('filter items by exact OFS GTIN', function () {
+    $matchingItem = Item::factory()->create([
+        'name' => 'Chocolate Bar',
+        'ofs_gtin' => '3871234567890',
+    ]);
+    $otherItem = Item::factory()->create([
+        'name' => 'Orange Juice',
+        'ofs_gtin' => '3870000000000',
+    ]);
+
+    $response = getJson('api/v1/items?ofs_gtin=3871234567890&limit=all');
+
+    $response->assertOk();
+
+    $itemIds = collect($response->json('data'))->pluck('id');
+
+    expect($itemIds)
+        ->toContain($matchingItem->id)
+        ->not->toContain($otherItem->id);
+});
+
 test('create item with fixed amount tax', function () {
     $item = Item::factory()->raw([
         'taxes' => [
@@ -168,4 +213,97 @@ test('create item with fixed amount tax', function () {
         'calculation_type' => 'fixed',
         'fixed_amount' => 5000,
     ]);
+});
+
+test('import items from csv creates items with unit and OFS tax label', function () {
+    $companyId = User::find(1)->companies()->first()->id;
+
+    $taxType = TaxType::factory()->create([
+        'company_id' => $companyId,
+        'name' => 'PDV 17',
+        'percent' => 17,
+        'ofs_label' => 'E',
+    ]);
+
+    $csv = implode("\n", [
+        'name,price,unit,ofs_gtin,description,taxes',
+        'Kafa,12.50,kom,3871234567890,Opis,E',
+    ]);
+
+    $file = UploadedFile::fake()->createWithContent('items.csv', $csv);
+
+    $response = post('/api/v1/items/import', ['file' => $file], ['Accept' => 'application/json']);
+
+    $response->assertOk()
+        ->assertJsonPath('data.created', 1)
+        ->assertJsonPath('data.updated', 0)
+        ->assertJsonPath('data.skipped', 0);
+
+    $item = Item::where('ofs_gtin', '3871234567890')->first();
+
+    expect($item)->not->toBeNull();
+
+    $this->assertDatabaseHas('items', [
+        'id' => $item->id,
+        'name' => 'Kafa',
+        'price' => 1250,
+        'company_id' => $companyId,
+    ]);
+
+    $this->assertDatabaseHas('units', [
+        'id' => $item->unit_id,
+        'name' => 'kom',
+        'company_id' => $companyId,
+    ]);
+
+    $this->assertDatabaseHas('taxes', [
+        'item_id' => $item->id,
+        'tax_type_id' => $taxType->id,
+        'amount' => 213,
+    ]);
+});
+
+test('import items from csv updates existing items by OFS GTIN', function () {
+    $companyId = User::find(1)->companies()->first()->id;
+
+    $item = Item::factory()->create([
+        'company_id' => $companyId,
+        'name' => 'Stara cijena',
+        'ofs_gtin' => '3870000000001',
+        'price' => 1000,
+    ]);
+
+    $csv = implode("\n", [
+        'name;price;unit;ofs_gtin',
+        'Nova cijena;22,40;kom;3870000000001',
+    ]);
+
+    $file = UploadedFile::fake()->createWithContent('items.csv', $csv);
+
+    $response = post('/api/v1/items/import', ['file' => $file], ['Accept' => 'application/json']);
+
+    $response->assertOk()
+        ->assertJsonPath('data.created', 0)
+        ->assertJsonPath('data.updated', 1)
+        ->assertJsonPath('data.skipped', 0);
+
+    $item->refresh();
+
+    expect($item->name)->toBe('Nova cijena');
+    expect($item->price)->toBe(2240);
+
+    $this->assertDatabaseHas('units', [
+        'id' => $item->unit_id,
+        'name' => 'kom',
+        'company_id' => $companyId,
+    ]);
+});
+
+test('import items from csv requires name and price columns', function () {
+    $file = UploadedFile::fake()->createWithContent('items.csv', "title,amount\nKafa,12.50");
+
+    $response = post('/api/v1/items/import', ['file' => $file], ['Accept' => 'application/json']);
+
+    $response->assertUnprocessable()
+        ->assertJsonValidationErrors('file');
 });

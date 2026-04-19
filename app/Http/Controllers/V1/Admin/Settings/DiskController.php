@@ -163,7 +163,7 @@ class DiskController extends Controller
 
         $drivers = [
             [
-                'name' => 'Local',
+                'name' => 'Lokalno',
                 'value' => 'local',
             ],
             [
@@ -171,7 +171,7 @@ class DiskController extends Controller
                 'value' => 's3',
             ],
             [
-                'name' => 'S3 Compatible Storage',
+                'name' => 'S3 kompatibilno skladište',
                 'value' => 's3compat',
             ],
             [

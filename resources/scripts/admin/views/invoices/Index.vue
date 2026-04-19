@@ -1,10 +1,10 @@
 <template>
   <BasePage>
     <SendInvoiceModal />
-    <BasePageHeader :title="$t('invoices.title')">
+    <BasePageHeader :title="pageTitle">
       <BaseBreadcrumb>
         <BaseBreadcrumbItem :title="$t('general.home')" to="dashboard" />
-        <BaseBreadcrumbItem :title="$t('invoices.invoice', 2)" to="#" active />
+        <BaseBreadcrumbItem :title="pageTitle" to="#" active />
       </BaseBreadcrumb>
 
       <template #actions>
@@ -25,7 +25,7 @@
         </BaseButton>
 
         <router-link
-          v-if="userStore.hasAbilities(abilities.CREATE_INVOICE)"
+          v-if="userStore.hasAbilities(abilities.CREATE_INVOICE) && !isCreditNotesView"
           to="invoices/create"
         >
           <BaseButton variant="primary" class="ml-4">
@@ -35,8 +35,18 @@
             {{ $t('invoices.new_invoice') }}
           </BaseButton>
         </router-link>
+
+        <router-link v-if="isCreditNotesView" to="/admin/invoices">
+          <BaseButton variant="primary-outline" class="ml-4">
+            {{ $t('invoices.back_to_invoices') }}
+          </BaseButton>
+        </router-link>
       </template>
     </BasePageHeader>
+
+    <p v-if="isCreditNotesView" class="mt-4 text-sm text-gray-500">
+      {{ $t('invoices.credit_notes_help') }}
+    </p>
 
     <BaseFilterWrapper
       v-show="showFilters"
@@ -96,12 +106,12 @@
 
     <BaseEmptyPlaceholder
       v-show="showEmptyScreen"
-      :title="$t('invoices.no_invoices')"
-      :description="$t('invoices.list_of_invoices')"
+      :title="emptyTitle"
+      :description="emptyDescription"
     >
       <MoonwalkerIcon class="mt-5 mb-4" />
       <template
-        v-if="userStore.hasAbilities(abilities.CREATE_INVOICE)"
+        v-if="userStore.hasAbilities(abilities.CREATE_INVOICE) && !isCreditNotesView"
         #actions
       >
         <BaseButton
@@ -208,6 +218,12 @@
           >
             {{ row.data.invoice_number }}
           </router-link>
+          <div
+            v-if="row.data.document_type === 'credit_note'"
+            class="mt-1 text-xs font-medium text-gray-500"
+          >
+            {{ $t('invoices.credit_note') }}
+          </div>
         </template>
 
         <!-- Invoice date  -->
@@ -266,7 +282,7 @@
 
 <script setup>
 import { computed, onUnmounted, reactive, ref, watch, inject } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useInvoiceStore } from '@/scripts/admin/stores/invoice'
 import { useNotificationStore } from '@/scripts/stores/notification'
@@ -315,7 +331,24 @@ const status = ref([
 const isRequestOngoing = ref(true)
 const activeTab = ref('general.draft')
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
+
+const documentType = computed(() => route.query.document_type || '')
+const isCreditNotesView = computed(() => documentType.value === 'credit_note')
+const pageTitle = computed(() =>
+  isCreditNotesView.value ? t('invoices.credit_notes') : t('invoices.title')
+)
+const emptyTitle = computed(() =>
+  isCreditNotesView.value
+    ? t('invoices.no_credit_notes')
+    : t('invoices.no_invoices')
+)
+const emptyDescription = computed(() =>
+  isCreditNotesView.value
+    ? t('invoices.list_of_credit_notes')
+    : t('invoices.list_of_invoices')
+)
 
 let filters = reactive({
   customer_id: '',
@@ -382,6 +415,13 @@ debouncedWatch(
   { debounce: 500 }
 )
 
+watch(
+  () => route.query.document_type,
+  () => {
+    setFilters()
+  }
+)
+
 onUnmounted(() => {
   if (invoiceStore.selectAllField) {
     invoiceStore.selectAllInvoices()
@@ -413,17 +453,15 @@ async function fetchData({ page, filter, sort }) {
     from_date: filters.from_date,
     to_date: filters.to_date,
     invoice_number: filters.invoice_number,
+    document_type: documentType.value,
     orderByField: sort.fieldName || 'created_at',
     orderBy: sort.order || 'desc',
     page,
   }
 
-  console.log(data)
-
   isRequestOngoing.value = true
 
   let response = await invoiceStore.fetchInvoices(data)
-  console.log('API response:', response.data.data)
 
   isRequestOngoing.value = false
 

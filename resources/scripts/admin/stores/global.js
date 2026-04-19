@@ -83,7 +83,7 @@ export const useGlobalStore = (useWindow = false) => {
               // Determine and load the appropriate language
               const userLanguage = response.data.current_user_settings?.language
               const companyLanguage = response.data.current_company_settings?.language
-              const targetLanguage = userLanguage || companyLanguage || 'en'
+              const targetLanguage = userLanguage || companyLanguage || 'sr'
 
               // Load the language dynamically if it's not English
               if (targetLanguage !== 'en' && window.loadLanguage) {

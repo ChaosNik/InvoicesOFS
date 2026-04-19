@@ -38,7 +38,15 @@ const searchData = reactive({
   searchText: null,
 })
 
-const pageTitle = computed(() => invoiceData.value.invoice_number)
+const isCreditNote = computed(
+  () => invoiceData.value?.document_type === 'credit_note'
+)
+
+const pageTitle = computed(() =>
+  isCreditNote.value
+    ? `${t('invoices.credit_note')} ${invoiceData.value.invoice_number}`
+    : invoiceData.value.invoice_number
+)
 
 const getOrderBy = computed(() => {
   if (searchData.orderBy === 'asc' || searchData.orderBy == null) {
@@ -233,6 +241,37 @@ onSearched = debounce(onSearched, 500)
 
   <BasePage v-if="invoiceData" class="xl:pl-96 xl:ml-8">
     <BasePageHeader :title="pageTitle">
+      <p
+        v-if="invoiceData.fiscal_invoice_number"
+        class="mt-1 text-sm text-gray-500"
+      >
+        {{ $t('invoices.fiscal_receipt_number') }}:
+        <span class="font-medium text-gray-700">
+          {{ invoiceData.fiscal_invoice_number }}
+        </span>
+      </p>
+      <p
+        v-else-if="invoiceData.fiscal_status === 'PENDING'"
+        class="mt-1 text-sm text-gray-500"
+      >
+        {{ $t('invoices.fiscalization_pending') }}
+      </p>
+      <p
+        v-else-if="invoiceData.fiscal_status === 'FAILED'"
+        class="mt-1 text-sm text-red-600"
+      >
+        {{ $t('invoices.fiscalization_failed') }}
+      </p>
+      <p
+        v-if="isCreditNote && invoiceData.referent_document_number"
+        class="mt-1 text-sm text-gray-500"
+      >
+        {{ $t('invoices.credit_note_for_invoice') }}:
+        <span class="font-medium text-gray-700">
+          {{ invoiceData.referent_document_number }}
+        </span>
+      </p>
+
       <template #actions>
         <div class="text-sm mr-3">
           <BaseButton
@@ -327,7 +366,7 @@ onSearched = debounce(onSearched, 500)
           </BaseInput>
         </div>
 
-        <div class="flex mb-6 ml-3" role="group" aria-label="First group">
+        <div class="flex mb-6 ml-3" role="group" :aria-label="$t('general.action_group')">
           <BaseDropdown class="ml-3" position="bottom-start">
             <template #activator>
               <BaseButton size="md" variant="gray">
@@ -448,6 +487,12 @@ onSearched = debounce(onSearched, 500)
                 "
               >
                 {{ invoice.invoice_number }}
+              </div>
+              <div
+                v-if="invoice.document_type === 'credit_note'"
+                class="mb-2 text-xs font-medium text-primary-500"
+              >
+                {{ $t('invoices.credit_note') }}
               </div>
               <BaseEstimateStatusBadge
                 :status="invoice.status"

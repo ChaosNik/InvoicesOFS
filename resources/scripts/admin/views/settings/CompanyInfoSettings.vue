@@ -96,6 +96,35 @@
         </div>
       </BaseInputGrid>
 
+      <BaseInputGrid class="mt-6">
+        <div class="md:col-span-2">
+          <h3 class="text-sm font-medium text-gray-900">
+            {{ $t('settings.company_info.swift_payment_details') }}
+          </h3>
+          <p class="mt-1 text-sm text-gray-500">
+            {{ $t('settings.company_info.swift_payment_details_description') }}
+          </p>
+        </div>
+
+        <BaseInputGroup :label="$t('settings.company_info.swift_bank_name')">
+          <BaseInput v-model="companyForm.swift_bank_name" type="text" />
+        </BaseInputGroup>
+
+        <BaseInputGroup
+          :label="$t('settings.company_info.swift_account_number')"
+        >
+          <BaseInput v-model="companyForm.swift_account_number" type="text" />
+        </BaseInputGroup>
+
+        <BaseInputGroup :label="$t('settings.company_info.swift_iban')">
+          <BaseInput v-model="companyForm.swift_iban" type="text" />
+        </BaseInputGroup>
+
+        <BaseInputGroup :label="$t('settings.company_info.swift_bic')">
+          <BaseInput v-model="companyForm.swift_bic" type="text" />
+        </BaseInputGroup>
+      </BaseInputGrid>
+
       <BaseButton
         :loading="isSaving"
         :disabled="isSaving"
@@ -156,6 +185,11 @@ const companyForm = reactive({
   logo: null,
   tax_id: null,
   vat_id: null,
+  swift_bank_name: companyStore.selectedCompanySettings.swift_bank_name || '',
+  swift_account_number:
+    companyStore.selectedCompanySettings.swift_account_number || '',
+  swift_iban: companyStore.selectedCompanySettings.swift_iban || '',
+  swift_bic: companyStore.selectedCompanySettings.swift_bic || '',
   address: {
     address_street_1: '',
     address_street_2: '',
@@ -229,6 +263,17 @@ async function updateCompanyData() {
   const res = await companyStore.updateCompany(companyForm)
 
   if (res.data.data) {
+    await companyStore.updateCompanySettings({
+      data: {
+        settings: {
+          swift_bank_name: companyForm.swift_bank_name,
+          swift_account_number: companyForm.swift_account_number,
+          swift_iban: companyForm.swift_iban,
+          swift_bic: companyForm.swift_bic,
+        },
+      },
+    })
+
     if (logoFileBlob.value || isCompanyLogoRemoved.value) {
       let logoData = new FormData()
 

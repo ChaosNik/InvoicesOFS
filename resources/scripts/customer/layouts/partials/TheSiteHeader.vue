@@ -120,7 +120,7 @@
               focus:ring-primary-500
             "
           >
-            <span class="sr-only">Open main menu</span>
+            <span class="sr-only">{{ $t('general.open_main_menu') }}</span>
             <Bars3Icon v-if="!open" class="block h-6 w-6" aria-hidden="true" />
             <XMarkIcon v-else class="block h-6 w-6" aria-hidden="true" />
           </DisclosureButton>

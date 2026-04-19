@@ -45,6 +45,7 @@ export const usePaymentStore = (useWindow = false) => {
       currentPaymentMode: {
         id: '',
         name: null,
+        ofs_payment_type: null,
       },
 
       isFetchingInitialData: false,
@@ -389,7 +390,7 @@ export const usePaymentStore = (useWindow = false) => {
                 let pos = this.paymentModes.findIndex(
                   (paymentMode) => paymentMode.id === response.data.data.id
                 )
-                this.paymentModes[pos] = data.paymentModes
+                this.paymentModes[pos] = response.data.data
                 notificationStore.showNotification({
                   type: 'success',
                   message: global.t(

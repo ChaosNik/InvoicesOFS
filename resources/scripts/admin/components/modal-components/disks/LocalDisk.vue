@@ -52,7 +52,7 @@
             type="text"
             name="name"
             :invalid="v$.localDiskConfig.root.$error"
-            placeholder="Ex./user/root/"
+            placeholder="Npr. /user/root/"
             @input="v$.localDiskConfig.root.$touch()"
           />
         </BaseInputGroup>

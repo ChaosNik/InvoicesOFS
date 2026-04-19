@@ -57,7 +57,7 @@
           <BaseIcon name="MagnifyingGlassIcon" class="h-5" />
         </BaseInput>
 
-        <div class="flex ml-3" role="group" aria-label="First group">
+        <div class="flex ml-3" role="group" :aria-label="$t('general.action_group')">
           <BaseDropdown
             position="bottom-start"
             width-class="w-50"

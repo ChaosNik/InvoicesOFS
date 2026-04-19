@@ -19,7 +19,7 @@ class OnboardingWizardController extends Controller
         if (! InstallUtils::dbMarkerExists()) {
             return response()->json([
                 'profile_complete' => 0,
-                'profile_language' => 'en',
+                'profile_language' => 'sr',
             ]);
         }
 

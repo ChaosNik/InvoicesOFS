@@ -59,6 +59,14 @@ export async function loadLanguage(locale) {
  * @returns {Promise<void>}
  */
 export async function setI18nLanguage(i18n, locale) {
+  const existingMessages = i18n.global.getLocaleMessage(locale)
+
+  if (existingMessages && Object.keys(existingMessages).length) {
+    loadedLanguages.add(locale)
+    i18n.global.locale.value = locale
+    return
+  }
+
   // Load the language if not already loaded
   if (!loadedLanguages.has(locale)) {
     const messages = await loadLanguage(locale)

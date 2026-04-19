@@ -22,7 +22,7 @@ class CustomerPortalMiddleware
         if (! $user->enable_portal) {
             Auth::guard('customer')->logout();
 
-            return response('Unauthorized.', 401);
+            return response(__('auth.unauthorized'), 401);
         }
 
         return $next($request);

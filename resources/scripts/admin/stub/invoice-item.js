@@ -4,6 +4,7 @@ export default {
   name: '',
   title: '',
   description: null,
+  ofs_gtin: '',
   quantity: 1,
   price: 0,
   discount_type: 'fixed',

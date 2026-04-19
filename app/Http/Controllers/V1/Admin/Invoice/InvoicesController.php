@@ -8,7 +8,11 @@ use App\Http\Requests\DeleteInvoiceRequest;
 use App\Http\Resources\InvoiceResource;
 use App\Jobs\GenerateInvoicePdfJob;
 use App\Models\Invoice;
+use App\Services\Ofs\OfsException;
+use App\Services\Ofs\OfsFiscalizationService;
+use App\Services\Ofs\OfsValidationException;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class InvoicesController extends Controller
 {
@@ -31,7 +35,11 @@ class InvoicesController extends Controller
 
         return InvoiceResource::collection($invoices)
             ->additional(['meta' => [
-                'invoice_total_count' => Invoice::whereCompany()->count(),
+                'invoice_total_count' => Invoice::whereCompany()
+                    ->when($request->input('document_type'), function ($query, $documentType) {
+                        $query->where('document_type', $documentType);
+                    })
+                    ->count(),
             ]]);
     }
 
@@ -41,11 +49,34 @@ class InvoicesController extends Controller
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function store(Requests\InvoicesRequest $request)
+    public function store(Requests\InvoicesRequest $request, OfsFiscalizationService $fiscalizationService)
     {
         $this->authorize('create', Invoice::class);
 
         $invoice = Invoice::createInvoice($request);
+
+        try {
+            $fiscalizationService->fiscalizeInvoice($invoice, $request->user());
+        } catch (OfsValidationException $exception) {
+            $invoice->delete();
+
+            throw ValidationException::withMessages([
+                'ofs' => [$exception->getMessage()],
+            ]);
+        } catch (OfsException $exception) {
+            throw ValidationException::withMessages([
+                'ofs' => [$exception->getMessage()],
+            ]);
+        }
+
+        $invoice = Invoice::with([
+            'items',
+            'items.fields',
+            'items.fields.customField',
+            'customer',
+            'taxes',
+            'fiscalization',
+        ])->find($invoice->id);
 
         if ($request->has('invoiceSend')) {
             $invoice->send($request->subject, $request->body);
@@ -77,6 +108,10 @@ class InvoicesController extends Controller
     public function update(Requests\InvoicesRequest $request, Invoice $invoice)
     {
         $this->authorize('update', $invoice);
+
+        if ($invoice->fiscal_status === \App\Models\OfsFiscalization::STATUS_FISCALIZED) {
+            return respondJson('invoice_fiscalized', 'Fiscalized invoices cannot be edited.');
+        }
 
         $invoice = $invoice->updateInvoice($request);
 

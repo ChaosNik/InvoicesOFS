@@ -5,6 +5,7 @@ namespace Database\Factories;
 use App\Models\Currency;
 use App\Models\Customer;
 use App\Models\Invoice;
+use App\Models\PaymentMethod;
 use App\Models\RecurringInvoice;
 use App\Models\User;
 use App\Services\SerialNumberFormatter;
@@ -86,6 +87,11 @@ class InvoiceFactory extends Factory
         return [
             'invoice_date' => $this->faker->date('Y-m-d', 'now'),
             'due_date' => $this->faker->date('Y-m-d', 'now'),
+            'document_type' => Invoice::DOCUMENT_TYPE_INVOICE,
+            'original_invoice_id' => null,
+            'referent_document_number' => null,
+            'referent_document_dt' => null,
+            'credit_note_reason' => null,
             'invoice_number' => $sequenceNumber->getNextNumber(),
             'sequence_number' => $sequenceNumber->nextSequenceNumber,
             'customer_sequence_number' => $sequenceNumber->nextCustomerSequenceNumber,
@@ -95,6 +101,7 @@ class InvoiceFactory extends Factory
             'tax_per_item' => 'NO',
             'tax_included' => false,
             'discount_per_item' => 'NO',
+            'fiscal_payment_method_id' => PaymentMethod::factory(),
             'paid_status' => Invoice::STATUS_UNPAID,
             'company_id' => User::find(1)->companies()->first()->id,
             'sub_total' => $this->faker->randomDigitNotNull(),

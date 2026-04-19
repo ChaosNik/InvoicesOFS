@@ -72,7 +72,7 @@
           :content-loading="isFetchingInitialData"
           :options="encryptions"
           :invalid="v$.sesConfig.mail_encryption.$error"
-          placeholder="Select option"
+          :placeholder="$t('general.select_option')"
           @input="v$.sesConfig.mail_encryption.$touch()"
         />
       </BaseInputGroup>

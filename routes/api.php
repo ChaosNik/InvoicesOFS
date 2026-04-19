@@ -252,6 +252,8 @@ Route::prefix('/v1')->group(function () {
             // Items
             // ----------------------------------
 
+            Route::post('/items/import', [ItemsController::class, 'import']);
+
             Route::post('/items/delete', [ItemsController::class, 'delete']);
 
             Route::resource('items', ItemsController::class);

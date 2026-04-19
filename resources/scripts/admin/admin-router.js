@@ -442,6 +442,12 @@ export default [
         component: InvoiceView,
       },
       {
+        path: 'invoices/:id/credit-note',
+        name: 'invoices.credit-note',
+        meta: { ability: abilities.CREATE_INVOICE },
+        component: InvoiceCreate,
+      },
+      {
         path: 'invoices/:id/edit',
         name: 'invoices.edit',
         meta: { ability: abilities.EDIT_INVOICE },

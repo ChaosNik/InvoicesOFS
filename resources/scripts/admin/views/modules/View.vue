@@ -112,7 +112,7 @@
           >
             <img
               :src="displayImage"
-              alt="Module Images"
+              :alt="$t('modules.module_images')"
               class="w-full h-full object-center object-cover sm:rounded-lg"
             />
           </div>
@@ -131,12 +131,12 @@
       >
         <!-- Average Rating -->
 
-        <h3 class="sr-only">Reviews</h3>
+        <h3 class="sr-only">{{ $t('modules.customer_reviews') }}</h3>
 
         <div class="flex items-center">
           <BaseRating :rating="averageRating" />
         </div>
-        <p class="sr-only">4 out of 5 stars</p>
+        <p class="sr-only">4 / 5</p>
 
         <!-- Module Name and Version -->
         <div class="flex flex-col-reverse">
@@ -154,7 +154,7 @@
             </h1>
 
             <h2 id="information-heading" class="sr-only">
-              Product information
+              {{ $t('modules.product_information') }}
             </h2>
 
             <p
@@ -177,7 +177,9 @@
         <!-- Module Pricing -->
         <div v-if="!moduleData.purchased">
           <RadioGroup v-model="selectedPlan">
-            <RadioGroupLabel class="sr-only"> Pricing plans </RadioGroupLabel>
+            <RadioGroupLabel class="sr-only">
+              {{ $t('modules.pricing_plans') }}
+            </RadioGroupLabel>
             <div class="relative bg-white rounded-md -space-y-px">
               <RadioGroupOption
                 v-for="(size, sizeIdx) in modulePrice"
@@ -387,7 +389,9 @@
 
         <!-- Social Share  -->
         <!-- <div class="border-t border-gray-200 mt-10 pt-10">
-          <h3 class="text-sm font-medium text-gray-900">Share</h3>
+          <h3 class="text-sm font-medium text-gray-900">
+            {{ $t('modules.share') }}
+          </h3>
           <ul role="list" class="flex items-center space-x-6 mt-4">
             <li>
               <a
@@ -402,7 +406,7 @@
                   hover:text-gray-500
                 "
               >
-                <span class="sr-only">Share on Facebook</span>
+                <span class="sr-only">{{ $t('modules.share_on_facebook') }}</span>
                 <svg
                   class="w-5 h-5"
                   fill="currentColor"
@@ -430,7 +434,7 @@
                   hover:text-gray-500
                 "
               >
-                <span class="sr-only">Share on Instagram</span>
+                <span class="sr-only">{{ $t('modules.share_on_instagram') }}</span>
                 <svg
                   class="w-6 h-6"
                   fill="currentColor"
@@ -458,7 +462,7 @@
                   hover:text-gray-500
                 "
               >
-                <span class="sr-only">Share on Twitter</span>
+                <span class="sr-only">{{ $t('modules.share_on_twitter') }}</span>
                 <svg
                   class="w-5 h-5"
                   fill="currentColor"
@@ -526,7 +530,7 @@
           <TabPanels as="template">
             <!-- Customer Reviews  -->
             <TabPanel class="-mb-10">
-              <h3 class="sr-only">Customer Reviews</h3>
+              <h3 class="sr-only">{{ $t('modules.customer_reviews') }}</h3>
               <div v-if="moduleData.reviews.length">
                 <div
                   v-for="(review, reviewIdx) in moduleData.reviews"
@@ -590,7 +594,9 @@
 
             <!-- FAQs  -->
             <TabPanel as="dl" class="text-sm text-gray-500">
-              <h3 class="sr-only">Frequently Asked Questions</h3>
+              <h3 class="sr-only">
+                {{ $t('modules.frequently_asked_questions') }}
+              </h3>
 
               <template v-for="faq in moduleData.faq" :key="faq.question">
                 <dt class="mt-10 font-medium text-gray-900">
@@ -604,7 +610,7 @@
 
             <!-- License  -->
             <TabPanel class="pt-10">
-              <h3 class="sr-only">License</h3>
+              <h3 class="sr-only">{{ $t('modules.license') }}</h3>
 
               <div
                 class="prose prose-sm max-w-none text-gray-500"

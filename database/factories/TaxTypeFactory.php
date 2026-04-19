@@ -26,6 +26,7 @@ class TaxTypeFactory extends Factory
             'company_id' => User::find(1)->companies()->first()->id,
             'percent' => $this->faker->numberBetween($min = 0, $max = 100),
             'fixed_amount' => null,
+            'ofs_label' => 'A',
             'description' => $this->faker->text(),
             'compound_tax' => 0,
             'collective_tax' => 0,

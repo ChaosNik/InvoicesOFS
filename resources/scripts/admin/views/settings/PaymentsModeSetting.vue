@@ -61,6 +61,10 @@ const paymentColumns = computed(() => {
       tdClass: 'font-medium text-gray-900',
     },
     {
+      key: 'ofs_payment_type',
+      label: t('settings.payment_modes.ofs_payment_type'),
+    },
+    {
       key: 'actions',
       label: '',
       tdClass: 'text-right text-sm font-medium',

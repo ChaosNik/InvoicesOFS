@@ -27,6 +27,10 @@ class PaymentMethodRequest extends FormRequest
                 Rule::unique('payment_methods')
                     ->where('company_id', $this->header('company')),
             ],
+            'ofs_payment_type' => [
+                'nullable',
+                Rule::in(['Cash', 'Card', 'WireTransfer', 'Other']),
+            ],
         ];
 
         if ($this->getMethod() == 'PUT') {

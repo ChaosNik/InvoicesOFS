@@ -32,6 +32,12 @@ class ItemsRequest extends FormRequest
             'description' => [
                 'nullable',
             ],
+            'ofs_gtin' => [
+                'nullable',
+                'string',
+                'min:8',
+                'max:14',
+            ],
         ];
     }
 }

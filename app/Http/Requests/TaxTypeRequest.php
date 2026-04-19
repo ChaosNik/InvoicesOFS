@@ -43,6 +43,11 @@ class TaxTypeRequest extends FormRequest
             'description' => [
                 'nullable',
             ],
+            'ofs_label' => [
+                'nullable',
+                'string',
+                'max:16',
+            ],
             'compound_tax' => [
                 'nullable',
             ],

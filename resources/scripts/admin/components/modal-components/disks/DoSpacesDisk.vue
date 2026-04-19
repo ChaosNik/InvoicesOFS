@@ -52,7 +52,7 @@
             v-model.trim="diskStore.doSpaceDiskConfig.root"
             type="text"
             name="name"
-            placeholder="Ex. /user/root/"
+            placeholder="Npr. /user/root/"
             :invalid="v$.doSpaceDiskConfig.root.$error"
             @input="v$.doSpaceDiskConfig.root.$touch()"
           />
@@ -70,7 +70,7 @@
             v-model.trim="diskStore.doSpaceDiskConfig.key"
             type="text"
             name="name"
-            placeholder="Ex. KEIS4S39SERSDS"
+            placeholder="Npr. KEIS4S39SERSDS"
             :invalid="v$.doSpaceDiskConfig.key.$error"
             @input="v$.doSpaceDiskConfig.key.$touch()"
           />
@@ -88,7 +88,7 @@
             v-model.trim="diskStore.doSpaceDiskConfig.secret"
             type="text"
             name="name"
-            placeholder="Ex. ********"
+            placeholder="Npr. ********"
             :invalid="v$.doSpaceDiskConfig.secret.$error"
             @input="v$.doSpaceDiskConfig.secret.$touch()"
           />
@@ -106,7 +106,7 @@
             v-model.trim="diskStore.doSpaceDiskConfig.region"
             type="text"
             name="name"
-            placeholder="Ex. nyc3"
+            placeholder="Npr. nyc3"
             :invalid="v$.doSpaceDiskConfig.region.$error"
             @input="v$.doSpaceDiskConfig.region.$touch()"
           />
@@ -124,7 +124,7 @@
             v-model.trim="diskStore.doSpaceDiskConfig.endpoint"
             type="text"
             name="name"
-            placeholder="Ex. https://nyc3.digitaloceanspaces.com"
+            placeholder="Npr. https://nyc3.digitaloceanspaces.com"
             :invalid="v$.doSpaceDiskConfig.endpoint.$error"
             @input="v$.doSpaceDiskConfig.endpoint.$touch()"
           />
@@ -142,7 +142,7 @@
             v-model.trim="diskStore.doSpaceDiskConfig.bucket"
             type="text"
             name="name"
-            placeholder="Ex. my-new-space"
+            placeholder="Npr. my-new-space"
             :invalid="v$.doSpaceDiskConfig.bucket.$error"
             @input="v$.doSpaceDiskConfig.bucket.$touch()"
           />

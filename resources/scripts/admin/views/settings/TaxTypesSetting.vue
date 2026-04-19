@@ -111,6 +111,12 @@ const taxTypeColumns = computed(() => {
       tdClass: 'font-medium text-gray-900',
     },
     {
+      key: 'ofs_label',
+      label: t('tax_types.ofs_label'),
+      thClass: 'extra',
+      tdClass: 'font-medium text-gray-900',
+    },
+    {
       key: 'amount',
       label: t('settings.tax_types.amount'),
       thClass: 'extra',

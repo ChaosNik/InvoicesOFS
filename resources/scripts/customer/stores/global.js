@@ -33,7 +33,7 @@ export const useGlobalStore = defineStore({
 
             if(typeof global.locale !== 'string') {
               global.locale.value =
-                response.data.meta.current_company_language || 'en'
+                response.data.meta.current_company_language || 'sr'
             }
 
             this.isAppLoaded = true

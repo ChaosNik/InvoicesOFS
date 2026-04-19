@@ -45,6 +45,22 @@
           </BaseInputGroup>
 
           <BaseInputGroup
+            :label="$t('items.ofs_gtin')"
+            :content-loading="isFetchingInitialData"
+            :error="
+              v$.currentItem.ofs_gtin.$error &&
+              v$.currentItem.ofs_gtin.$errors[0].$message
+            "
+          >
+            <BaseInput
+              v-model="itemStore.currentItem.ofs_gtin"
+              :content-loading="isFetchingInitialData"
+              :invalid="v$.currentItem.ofs_gtin.$error"
+              @input="v$.currentItem.ofs_gtin.$touch()"
+            />
+          </BaseInputGroup>
+
+          <BaseInputGroup
             :content-loading="isFetchingInitialData"
             :label="$t('items.unit')"
           >
@@ -236,6 +252,16 @@ const rules = computed(() => {
         maxLength: helpers.withMessage(
           t('validation.description_maxlength'),
           maxLength(65000)
+        ),
+      },
+      ofs_gtin: {
+        minLength: helpers.withMessage(
+          t('validation.ofs_gtin_min_length', { count: 8 }),
+          minLength(8)
+        ),
+        maxLength: helpers.withMessage(
+          t('validation.ofs_gtin_max_length', { count: 14 }),
+          maxLength(14)
         ),
       },
     },

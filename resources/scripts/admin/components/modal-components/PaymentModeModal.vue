@@ -27,6 +27,21 @@
             @input="v$.currentPaymentMode.name.$touch()"
           />
         </BaseInputGroup>
+
+        <BaseInputGroup
+          class="mt-4"
+          :label="$t('settings.payment_modes.ofs_payment_type')"
+        >
+          <BaseSelectInput
+            v-model="paymentStore.currentPaymentMode.ofs_payment_type"
+            :options="ofsPaymentTypes"
+            value-prop="id"
+            label-prop="label"
+            track-by="label"
+            :searchable="false"
+            :allow-empty="true"
+          />
+        </BaseInputGroup>
       </div>
 
       <div
@@ -74,6 +89,12 @@ const paymentStore = usePaymentStore()
 
 const { t } = useI18n()
 const isSaving = ref(false)
+const ofsPaymentTypes = computed(() => [
+  { id: 'Cash', label: t('settings.payment_modes.ofs_payment_cash') },
+  { id: 'Card', label: t('settings.payment_modes.ofs_payment_card') },
+  { id: 'WireTransfer', label: t('settings.payment_modes.ofs_payment_wire_transfer') },
+  { id: 'Other', label: t('settings.payment_modes.ofs_payment_other') },
+])
 
 const rules = computed(() => {
   return {
@@ -127,6 +148,7 @@ function closePaymentModeModal() {
     paymentStore.currentPaymentMode = {
       id: '',
       name: null,
+      ofs_payment_type: null,
     }
   })
 }

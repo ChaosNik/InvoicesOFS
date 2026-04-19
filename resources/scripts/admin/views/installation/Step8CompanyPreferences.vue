@@ -163,7 +163,7 @@ let isFetchingInitialData = ref(false)
 
 let currentPreferences = reactive({
   currency: 1,
-  language: 'en',
+  language: 'sr',
   carbon_date_format: 'd M Y',
   time_zone: 'UTC',
   fiscal_year: '1-12',

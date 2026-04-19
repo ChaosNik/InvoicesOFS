@@ -1,11 +1,11 @@
 <template>
   <BasePage>
-    <h1 class="mb-2">Sample Table Local</h1>
+    <h1 class="mb-2">Lokalna test tabela</h1>
 
     <BaseTable :data="data" :columns="columns">
       <template #cell-status="{ row }">
         <span
-          v-if="row.data.status === 'Active'"
+          v-if="row.data.status === 'Aktivno'"
           class="
             inline-flex
             px-2
@@ -50,7 +50,7 @@
               class="w-5 h-5 mr-3 text-gray-400 group-hover:text-gray-500"
               aria-hidden="true"
             />
-            New Invoice
+            Nova faktura
           </base-dropdown-item>
 
           <base-dropdown-item>
@@ -58,7 +58,7 @@
               class="w-5 h-5 mr-3 text-gray-400 group-hover:text-gray-500"
               aria-hidden="true"
             />
-            New Estimate
+            Nova profaktura
           </base-dropdown-item>
 
           <base-dropdown-item>
@@ -66,13 +66,13 @@
               class="w-5 h-5 mr-3 text-gray-400 group-hover:text-gray-500"
               aria-hidden="true"
             />
-            New Customer
+            Novi klijent
           </base-dropdown-item>
         </base-dropdown>
       </template>
     </BaseTable>
 
-    <h1 class="mt-8 mb-2">Sample Table Remote</h1>
+    <h1 class="mt-8 mb-2">Udaljena test tabela</h1>
 
     <BaseTable :data="fetchData" :columns="columns2"> </BaseTable>
   </BasePage>
@@ -100,21 +100,21 @@ export default {
   setup() {
     const itemStore = useItemStore()
     const data = reactive([
-      { name: 'Tom', age: 3, image: 'tom.jpg', status: 'Active' },
-      { name: 'Felix', age: 5, image: 'felix.jpg', status: 'Disabled' },
-      { name: 'Sylvester', age: 7, image: 'sylvester.jpg', status: 'Active' },
+      { name: 'Tom', age: 3, image: 'tom.jpg', status: 'Aktivno' },
+      { name: 'Felix', age: 5, image: 'felix.jpg', status: 'Onemogućeno' },
+      { name: 'Sylvester', age: 7, image: 'sylvester.jpg', status: 'Aktivno' },
     ])
 
     const columns = computed(() => {
       return [
         {
           key: 'name',
-          label: 'Name',
+          label: 'Ime',
           thClass: 'extra',
           tdClass: 'font-medium text-gray-900',
         },
-        { key: 'age', label: 'Age' },
-        { key: 'image', label: 'Image' },
+        { key: 'age', label: 'Starost' },
+        { key: 'image', label: 'Slika' },
         { key: 'status', label: 'Status' },
         {
           key: 'actions',
@@ -129,12 +129,12 @@ export default {
       return [
         {
           key: 'name',
-          label: 'Name',
+          label: 'Naziv',
           thClass: 'extra',
           tdClass: 'font-medium text-gray-900',
         },
-        { key: 'price', label: 'Price' },
-        { key: 'created_at', label: 'Created At' },
+        { key: 'price', label: 'Cijena' },
+        { key: 'created_at', label: 'Kreirano' },
         {
           key: 'actions',
           label: '',

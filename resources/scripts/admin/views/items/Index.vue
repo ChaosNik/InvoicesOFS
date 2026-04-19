@@ -26,6 +26,27 @@
 
           <BaseButton
             v-if="userStore.hasAbilities(abilities.CREATE_ITEM)"
+            variant="primary-outline"
+            :loading="isImporting"
+            :disabled="isImporting"
+            @click="openImportFilePicker"
+          >
+            <template #left="slotProps">
+              <BaseIcon name="ArrowUpTrayIcon" :class="slotProps.class" />
+            </template>
+            {{ $t('items.import_csv') }}
+          </BaseButton>
+
+          <input
+            ref="importFileInput"
+            type="file"
+            class="hidden"
+            accept=".csv,text/csv"
+            @change="importItemsFromCsv"
+          >
+
+          <BaseButton
+            v-if="userStore.hasAbilities(abilities.CREATE_ITEM)"
             @click="$router.push('/admin/items/create')"
           >
             <template #left="slotProps">
@@ -212,6 +233,8 @@ const userStore = useUserStore()
 const { t } = useI18n()
 let showFilters = ref(false)
 let isFetchingInitialData = ref(true)
+const importFileInput = ref(null)
+const isImporting = ref(false)
 
 const filters = reactive({
   name: '',
@@ -296,6 +319,42 @@ function toggleFilter() {
 
 function refreshTable() {
   table.value && table.value.refresh()
+}
+
+function openImportFilePicker() {
+  importFileInput.value?.click()
+}
+
+async function importItemsFromCsv(event) {
+  const file = event.target.files?.[0]
+
+  if (!file) {
+    return
+  }
+
+  const data = new FormData()
+  data.append('file', file)
+  isImporting.value = true
+
+  try {
+    const response = await itemStore.importItems(data)
+    const result = response.data.data
+
+    notificationStore.showNotification({
+      type: 'success',
+      message: t('items.imported_message', {
+        created: result.created,
+        updated: result.updated,
+        skipped: result.skipped,
+      }),
+    })
+
+    await itemStore.fetchItemUnits({ limit: 'all' })
+    refreshTable()
+  } finally {
+    isImporting.value = false
+    event.target.value = ''
+  }
 }
 
 function setFilters() {

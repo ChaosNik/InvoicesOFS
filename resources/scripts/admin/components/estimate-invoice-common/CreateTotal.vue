@@ -227,7 +227,7 @@ import { computed, inject, ref, watch } from 'vue'
 import Guid from 'guid'
 import NetTotal from './NetTotal.vue'
 import Tax from './CreateTotalTaxes.vue'
-import TaxStub from '@/scripts/admin/stub/abilities'
+import TaxStub from '@/scripts/admin/stub/tax'
 import SelectTaxPopup from './SelectTaxPopup.vue'
 import { useCompanyStore } from '@/scripts/admin/stores/company'
 
