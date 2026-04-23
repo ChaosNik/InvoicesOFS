@@ -19,15 +19,15 @@ class UsersTableSeeder extends Seeder
     {
         $user = User::create([
             'email' => 'admin@invoiceshelf.com',
-            'name' => 'Jane Doe',
+            'name' => 'admin',
             'role' => 'super admin',
             'password' => 'invoiceshelf@123',
         ]);
 
         $company = Company::create([
-            'name' => 'xyz',
+            'name' => 'Olivera',
             'owner_id' => $user->id,
-            'slug' => 'xyz',
+            'slug' => 'olivera',
         ]);
 
         $company->unique_hash = Hashids::connection(Company::class)->encode($company->id);

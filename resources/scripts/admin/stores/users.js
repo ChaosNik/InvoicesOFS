@@ -63,6 +63,17 @@ export const useUsersStore = (useWindow = false) => {
             .then((response) => {
               this.userData = response.data.data
               if (this.userData?.companies?.length) {
+                this.userData.companies = this.userData.companies.map(
+                  (company) => ({
+                    ...company,
+                    roles: (company.roles || []).map((role) => ({
+                      ...role,
+                      display_name: role.title || role.name,
+                    })),
+                  })
+                )
+              }
+              if (this.userData?.companies?.length) {
                 this.userData.companies.forEach((c, i) => {
                   this.userData.roles.forEach((r) => {
                     if (r.scope === c.id)

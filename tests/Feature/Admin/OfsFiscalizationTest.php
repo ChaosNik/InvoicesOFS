@@ -1,6 +1,7 @@
 <?php
 
 use App\Mail\SendInvoiceMail;
+use App\Models\Company;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\OfsFiscalization;
@@ -15,6 +16,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Laravel\Sanctum\Sanctum;
+use Silber\Bouncer\BouncerFacade;
 
 use function Pest\Laravel\postJson;
 use function Pest\Laravel\putJson;
@@ -41,6 +43,15 @@ function invoicePayloadForOfsFeatureTest(array $overrides = []): array
     );
 }
 
+function assignInvoiceRoleForOfsTest(User $user, int $companyId, string $roleName): void
+{
+    $user->update(['role' => $roleName]);
+    $user->companies()->sync([$companyId]);
+
+    BouncerFacade::scope()->to($companyId);
+    BouncerFacade::sync($user)->roles([$roleName]);
+}
+
 test('creating an invoice in fake mode finalizes it with OFS metadata', function () {
     Queue::fake();
 
@@ -56,6 +67,44 @@ test('creating an invoice in fake mode finalizes it with OFS metadata', function
     $this->assertDatabaseHas('ofs_fiscalizations', [
         'invoice_id' => $response->json('data.id'),
         'status' => OfsFiscalization::STATUS_FISCALIZED,
+    ]);
+});
+
+test('mid level users can create non OFS invoices when fiscalization is turned off', function () {
+    Queue::fake();
+
+    $companyId = User::find(1)->companies()->first()->id;
+    $midLevelUser = User::factory()->create();
+
+    assignInvoiceRoleForOfsTest($midLevelUser, $companyId, Company::ROLE_MID_LEVEL_USER);
+
+    Sanctum::actingAs($midLevelUser, ['*']);
+
+    $payload = invoicePayloadForOfsFeatureTest([
+        'use_ofs' => false,
+        'fiscal_payment_method_id' => null,
+        'items' => [
+            InvoiceItem::factory()->raw([
+                'ofs_gtin' => '',
+            ]),
+        ],
+    ]);
+
+    $response = postJson('api/v1/invoices', $payload);
+
+    $response->assertOk()
+        ->assertJsonPath('data.fiscal_status', null)
+        ->assertJsonPath('data.fiscal_invoice_number', null)
+        ->assertJsonPath('data.use_ofs', false);
+
+    $this->assertDatabaseHas('invoices', [
+        'id' => $response->json('data.id'),
+        'fiscal_status' => null,
+        'fiscal_payment_method_id' => null,
+    ]);
+
+    $this->assertDatabaseMissing('ofs_fiscalizations', [
+        'invoice_id' => $response->json('data.id'),
     ]);
 });
 

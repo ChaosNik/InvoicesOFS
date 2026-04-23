@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Models\CompanySetting;
 use App\Models\Currency;
 use App\Models\Customer;
+use App\Models\Invoice;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\App;
@@ -32,15 +33,21 @@ class CustomerSalesReportController extends Controller
 
         $start = Carbon::createFromFormat('Y-m-d', $request->from_date);
         $end = Carbon::createFromFormat('Y-m-d', $request->to_date);
+        $invoiceScope = $this->resolveInvoiceScope($request, $company->id);
 
-        $customers = Customer::with(['invoices' => function ($query) use ($start, $end) {
+        $customers = Customer::with(['invoices' => function ($query) use ($start, $end, $invoiceScope) {
             $query->whereBetween(
                 'invoice_date',
                 [$start->format('Y-m-d'), $end->format('Y-m-d')]
-            );
+            )->applyInvoiceAccessScope($invoiceScope);
         }])
             ->where('company_id', $company->id)
-            ->applyInvoiceFilters($request->only(['from_date', 'to_date']))
+            ->whereHas('invoices', function ($query) use ($start, $end, $invoiceScope) {
+                $query->whereBetween(
+                    'invoice_date',
+                    [$start->format('Y-m-d'), $end->format('Y-m-d')]
+                )->applyInvoiceAccessScope($invoiceScope);
+            })
             ->get();
 
         $totalAmount = 0;
@@ -95,5 +102,19 @@ class CustomerSalesReportController extends Controller
         }
 
         return $pdf->stream();
+    }
+
+    private function resolveInvoiceScope(Request $request, int $companyId): string
+    {
+        $user = $request->user();
+        $requestedScope = $request->input('invoice_scope', $user->getDashboardInvoiceScope($companyId));
+
+        if (! $user->canViewNonOfsInvoices($companyId)) {
+            return Invoice::ACCESS_SCOPE_OFS_ONLY;
+        }
+
+        return in_array($requestedScope, [Invoice::ACCESS_SCOPE_ALL, Invoice::ACCESS_SCOPE_OFS_ONLY], true)
+            ? $requestedScope
+            : Invoice::ACCESS_SCOPE_ALL;
     }
 }

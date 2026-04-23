@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Models\CompanySetting;
 use App\Models\Currency;
 use App\Models\Expense;
+use App\Models\Invoice;
 use App\Models\Payment;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -30,9 +31,11 @@ class ProfitLossReportController extends Controller
         $locale = CompanySetting::getSetting('language', $company->id);
 
         App::setLocale($locale);
+        $invoiceScope = $this->resolveInvoiceScope($request, $company->id);
 
         $paymentsAmount = Payment::whereCompanyId($company->id)
             ->applyFilters($request->only(['from_date', 'to_date']))
+            ->applyInvoiceAccessScope($invoiceScope)
             ->sum('base_amount');
 
         $expenseCategories = Expense::with('category')
@@ -88,5 +91,19 @@ class ProfitLossReportController extends Controller
         }
 
         return $pdf->stream();
+    }
+
+    private function resolveInvoiceScope(Request $request, int $companyId): string
+    {
+        $user = $request->user();
+        $requestedScope = $request->input('invoice_scope', $user->getDashboardInvoiceScope($companyId));
+
+        if (! $user->canViewNonOfsInvoices($companyId)) {
+            return Invoice::ACCESS_SCOPE_OFS_ONLY;
+        }
+
+        return in_array($requestedScope, [Invoice::ACCESS_SCOPE_ALL, Invoice::ACCESS_SCOPE_OFS_ONLY], true)
+            ? $requestedScope
+            : Invoice::ACCESS_SCOPE_ALL;
     }
 }

@@ -31,6 +31,7 @@ class InvoiceResource extends JsonResource
             'fiscalized_at' => $this->fiscalized_at,
             'fiscal_verification_url' => $this->fiscal_verification_url,
             'fiscal_payment_method_id' => $this->fiscal_payment_method_id,
+            'use_ofs' => $this->shouldUseOfs(),
             'tax_per_item' => $this->tax_per_item,
             'tax_included' => $this->tax_included,
             'discount_per_item' => $this->discount_per_item,

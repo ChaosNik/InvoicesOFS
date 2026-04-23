@@ -20,6 +20,9 @@ class RoleResource extends JsonResource
             'name' => $this->name,
             'title' => $this->title,
             'level' => $this->level,
+            'invoice_access_scope' => $this->invoice_access_scope,
+            'dashboard_invoice_scope' => $this->dashboard_invoice_scope,
+            'can_toggle_dashboard_invoice_scope' => (bool) $this->can_toggle_dashboard_invoice_scope,
             'formatted_created_at' => $this->getFormattedAt(),
             'abilities' => $this->getAbilities(),
         ];

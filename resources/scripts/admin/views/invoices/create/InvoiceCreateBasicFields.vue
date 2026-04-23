@@ -59,6 +59,21 @@
       </BaseInputGroup>
 
       <BaseInputGroup
+        v-if="canChooseFiscalization"
+        :label="$t('invoices.fiscalization_mode')"
+        :content-loading="isLoading"
+      >
+        <BaseSelectInput
+          v-model="fiscalizationMode"
+          :content-loading="isLoading"
+          :options="fiscalizationModes"
+          value-prop="value"
+          label-key="label"
+        />
+      </BaseInputGroup>
+
+      <BaseInputGroup
+        v-if="invoiceStore.shouldUseOfs"
         :label="$t('invoices.fiscal_payment_mode')"
         :content-loading="isLoading"
         :error="
@@ -91,10 +106,12 @@
 
 <script setup>
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import ExchangeRateConverter from '@/scripts/admin/components/estimate-invoice-common/ExchangeRateConverter.vue'
 import { useInvoiceStore } from '@/scripts/admin/stores/invoice'
 import { useCompanyStore } from '@/scripts/admin/stores/company'
 import { usePaymentStore } from '@/scripts/admin/stores/payment'
+import { useUserStore } from '@/scripts/admin/stores/user'
 
 const props = defineProps({
   v: {
@@ -118,6 +135,38 @@ const props = defineProps({
 const invoiceStore = useInvoiceStore()
 const companyStore = useCompanyStore()
 const paymentStore = usePaymentStore()
+const userStore = useUserStore()
+const { t } = useI18n()
+
+const canChooseFiscalization = computed(() => {
+  return (
+    userStore.currentUserAccess.can_view_non_ofs_invoices &&
+    !props.isCreditNote &&
+    !props.isEdit
+  )
+})
+
+const fiscalizationModes = computed(() => {
+  return [
+    {
+      label: t('invoices.with_ofs'),
+      value: 'ofs',
+    },
+    {
+      label: t('invoices.without_ofs'),
+      value: 'standard',
+    },
+  ]
+})
+
+const fiscalizationMode = computed({
+  get: () => {
+    return invoiceStore.shouldUseOfs ? 'ofs' : 'standard'
+  },
+  set: (value) => {
+    invoiceStore.newInvoice.use_ofs = value !== 'standard'
+  },
+})
 
 const fiscalPaymentModes = computed(() => {
   return paymentStore.paymentModes.filter((mode) => mode.ofs_payment_type)

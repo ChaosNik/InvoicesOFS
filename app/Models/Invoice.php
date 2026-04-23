@@ -46,6 +46,12 @@ class Invoice extends Model implements HasMedia
 
     public const DOCUMENT_TYPE_CREDIT_NOTE = 'credit_note';
 
+    public const ACCESS_SCOPE_ALL = 'all';
+
+    public const ACCESS_SCOPE_OFS_ONLY = 'ofs_only';
+
+    public const ACCESS_SCOPE_NON_OFS = 'non_ofs';
+
     protected $dates = [
         'created_at',
         'updated_at',
@@ -159,6 +165,20 @@ class Invoice extends Model implements HasMedia
     public function isCreditNote(): bool
     {
         return $this->document_type === self::DOCUMENT_TYPE_CREDIT_NOTE;
+    }
+
+    public function isOfsConnected(): bool
+    {
+        return ! empty($this->fiscal_status)
+            || ! empty($this->fiscal_invoice_number)
+            || ! empty($this->fiscalized_at);
+    }
+
+    public function shouldUseOfs(): bool
+    {
+        return $this->isCreditNote()
+            || $this->isOfsConnected()
+            || ! empty($this->fiscal_payment_method_id);
     }
 
     public function getInvoicePdfUrlAttribute()
@@ -319,12 +339,55 @@ class Invoice extends Model implements HasMedia
             $query->invoicesBetween($start, $end);
         })->when($filters['customer_id'] ?? null, function ($query, $customerId) {
             $query->where('customer_id', $customerId);
+        })->when($filters['invoice_scope'] ?? null, function ($query, $invoiceScope) {
+            match ($invoiceScope) {
+                self::ACCESS_SCOPE_OFS_ONLY => $query->ofsConnected(),
+                self::ACCESS_SCOPE_NON_OFS => $query->nonOfs(),
+                default => null,
+            };
         })->when($filters['orderByField'] ?? null, function ($query, $orderByField) use ($filters) {
             $orderBy = $filters['orderBy'] ?? 'desc';
             $query->orderBy($orderByField, $orderBy);
         }, function ($query) {
             $query->orderBy('sequence_number', 'desc');
         });
+    }
+
+    public function scopeOfsConnected($query)
+    {
+        return $query->where(function ($query) {
+            $query->whereNotNull('invoices.fiscal_status')
+                ->orWhereNotNull('invoices.fiscal_invoice_number')
+                ->orWhereNotNull('invoices.fiscalized_at');
+        });
+    }
+
+    public function scopeNonOfs($query)
+    {
+        return $query->whereNull('invoices.fiscal_status')
+            ->whereNull('invoices.fiscal_invoice_number')
+            ->whereNull('invoices.fiscalized_at');
+    }
+
+    public function scopeApplyInvoiceAccessScope($query, string $invoiceScope = self::ACCESS_SCOPE_ALL)
+    {
+        return match ($invoiceScope) {
+            self::ACCESS_SCOPE_OFS_ONLY => $query->ofsConnected(),
+            self::ACCESS_SCOPE_NON_OFS => $query->nonOfs(),
+            default => $query,
+        };
+    }
+
+    public function scopeAccessibleByUser($query, ?User $user = null, ?int $companyId = null)
+    {
+        $user = $user ?? request()->user();
+        $companyId = $companyId ?? request()->header('company');
+
+        if (! $user || $user->canViewNonOfsInvoices($companyId)) {
+            return $query;
+        }
+
+        return $query->ofsConnected();
     }
 
     public function scopeWhereInvoice($query, $invoice_id)

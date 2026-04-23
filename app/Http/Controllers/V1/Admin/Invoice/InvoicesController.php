@@ -5,9 +5,11 @@ namespace App\Http\Controllers\V1\Admin\Invoice;
 use App\Http\Controllers\Controller;
 use App\Http\Requests;
 use App\Http\Requests\DeleteInvoiceRequest;
+use App\Http\Requests\ImportInvoicesRequest;
 use App\Http\Resources\InvoiceResource;
 use App\Jobs\GenerateInvoicePdfJob;
 use App\Models\Invoice;
+use App\Services\LegacyInvoiceImportService;
 use App\Services\Ofs\OfsException;
 use App\Services\Ofs\OfsFiscalizationService;
 use App\Services\Ofs\OfsValidationException;
@@ -28,6 +30,7 @@ class InvoicesController extends Controller
         $limit = $request->input('limit', 10);
 
         $invoices = Invoice::whereCompany()
+            ->accessibleByUser($request->user(), (int) $request->header('company'))
             ->applyFilters($request->all())
             ->with('customer')
             ->latest()
@@ -36,6 +39,8 @@ class InvoicesController extends Controller
         return InvoiceResource::collection($invoices)
             ->additional(['meta' => [
                 'invoice_total_count' => Invoice::whereCompany()
+                    ->accessibleByUser($request->user(), (int) $request->header('company'))
+                    ->applyFilters($request->only(['invoice_scope']))
                     ->when($request->input('document_type'), function ($query, $documentType) {
                         $query->where('document_type', $documentType);
                     })
@@ -56,7 +61,9 @@ class InvoicesController extends Controller
         $invoice = Invoice::createInvoice($request);
 
         try {
-            $fiscalizationService->fiscalizeInvoice($invoice, $request->user());
+            if ($request->shouldFiscalize()) {
+                $fiscalizationService->fiscalizeInvoice($invoice, $request->user());
+            }
         } catch (OfsValidationException $exception) {
             $invoice->delete();
 
@@ -85,6 +92,32 @@ class InvoicesController extends Controller
         GenerateInvoicePdfJob::dispatch($invoice);
 
         return new InvoiceResource($invoice);
+    }
+
+    public function import(ImportInvoicesRequest $request, LegacyInvoiceImportService $legacyInvoiceImportService)
+    {
+        $this->authorize('create', Invoice::class);
+
+        if (! $request->user()->canImportLegacyInvoices((int) $request->header('company'))) {
+            abort(403, 'Legacy invoice import is not available for OFS-only users.');
+        }
+
+        try {
+            $result = $legacyInvoiceImportService->import(
+                $request->file('file')->getRealPath(),
+                $request->user(),
+                (int) $request->header('company')
+            );
+        } catch (\RuntimeException $exception) {
+            throw ValidationException::withMessages([
+                'file' => [$exception->getMessage()],
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $result,
+        ]);
     }
 
     /**

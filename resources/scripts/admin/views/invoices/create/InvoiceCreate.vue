@@ -253,7 +253,10 @@ const rules = {
     required: helpers.withMessage(t('validation.required'), required),
   },
   fiscal_payment_method_id: {
-    required: helpers.withMessage(t('validation.required'), required),
+    required: helpers.withMessage(
+      t('validation.required'),
+      requiredIf(() => invoiceStore.shouldUseOfs)
+    ),
   },
   exchange_rate: {
     required: requiredIf(function () {
@@ -367,6 +370,10 @@ async function submitForm() {
     && data.taxes.length
   ) {
     data.tax_type_ids = data.taxes.map(_t => _t.tax_type_id)
+  }
+
+  if (!data.use_ofs) {
+    data.fiscal_payment_method_id = null
   }
 
   try {

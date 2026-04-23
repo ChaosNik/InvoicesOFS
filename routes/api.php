@@ -271,6 +271,8 @@ Route::prefix('/v1')->group(function () {
 
             Route::post('/invoices/{invoice}/status', ChangeInvoiceStatusController::class);
 
+            Route::post('/invoices/import', [InvoicesController::class, 'import']);
+
             Route::post('/invoices/delete', [InvoicesController::class, 'delete']);
 
             Route::get('/invoices/templates', InvoiceTemplatesController::class);

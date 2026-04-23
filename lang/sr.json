@@ -151,8 +151,12 @@
     "monthly_chart": {
       "title": "Prodaja & Rashodi"
     },
+    "invoice_scope": {
+      "ofs_only": "Samo OFS fakture",
+      "all_invoices": "Sve fakture"
+    },
     "recent_invoices_card": {
-      "title": "Dospele fakture",
+      "title": "Dospjele fakture",
       "due_on": "Datum dospijeća",
       "customer": "Klijent",
       "amount_due": "Iznos dospijeća",
@@ -425,6 +429,7 @@
     "sub_total": "Međuzbir",
     "invoice": "Faktura | Fakture",
     "invoice_number": "Broj fakture",
+    "fiscalization_mode": "Fiskalizacija",
     "ref_number": "Poziv na broj",
     "contact": "Kontakt",
     "add_item": "Dodaj stavku",
@@ -491,6 +496,8 @@
     "invalid_due_amount_message": "Ukupan iznos za plaćanje u fakturi ne može biti manji od iznosa uplate za ovu fakturu. Molim Vas ažurirajte fakturu ili obrišite uplate koje su povezane sa ovom fakturom da bi nastavili.",
     "mark_as_default_invoice_template_description": "Ako je omogućeno, izabrani šablon će automatski biti postavljen za nove fakture.",
     "fiscal_payment_mode": "OFS fiskalni način plaćanja",
+    "with_ofs": "Sa OFS-om",
+    "without_ofs": "Bez OFS-a",
     "fiscal_receipt_number": "OFS broj fiskalnog računa",
     "fiscal_status": "Status fiskalizacije",
     "fiscalization_pending": "Fiskalizacija je u toku",
@@ -516,7 +523,10 @@
     "no_credit_notes": "Još nema knjižnih odobrenja!",
     "list_of_credit_notes": "Ovdje će biti prikazana lista knjižnih odobrenja.",
     "credit_notes_help": "Knjižno odobrenje kreira se iz već fiskalizovane fakture.",
-    "back_to_invoices": "Nazad na fakture"
+    "back_to_invoices": "Nazad na fakture",
+    "import_csv": "Uvezi CSV",
+    "imported_legacy_message": "Uvezeno je {created} starih faktura, preskoceno {skipped}.",
+    "ofs_only_scope_notice": "Na ovom nalogu prikazuju se samo OFS povezane fakture."
   },
   "recurring_invoices": {
     "title": "Ponavljajuće fakture",

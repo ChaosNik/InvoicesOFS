@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Company;
 use App\Models\CompanySetting;
+use App\Models\Currency;
 use App\Models\Customer;
 use App\Models\Setting;
 use App\Models\User;
@@ -19,40 +20,92 @@ class DemoSeeder extends Seeder
      */
     public function run(): void
     {
-        // Create demo user
-        $user = User::factory()->create([
-            'email' => 'demo@invoiceshelf.com',
-            'name' => 'Demo User',
-            'role' => 'super admin',
+        $bamCurrencyId = Currency::where('code', 'BAM')->value('id') ?? 13;
+
+        $user = User::firstOrCreate(
+            [
+                'email' => 'demo@invoiceshelf.com',
+            ],
+            [
+                'name' => 'demo',
+                'role' => Company::ROLE_MID_LEVEL_USER,
+                'password' => 'demo',
+            ]
+        );
+
+        $user->update([
+            'name' => 'demo',
+            'role' => Company::ROLE_MID_LEVEL_USER,
             'password' => 'demo',
         ]);
 
-        // Create demo company
-        $company = Company::factory()->create([
-            'name' => 'Demo Company',
-            'owner_id' => $user->id,
-            'slug' => 'demo-company',
-        ]);
+        $admin = User::where('email', 'admin@invoiceshelf.com')->first();
+        $company = $admin?->companies()->first() ?? Company::first();
 
-        $company->unique_hash = Hashids::connection(Company::class)->encode($company->id);
-        $company->save();
-        $company->setupDefaultData();
-        $user->companies()->attach($company->id);
+        if (! $company) {
+            $company = Company::create([
+                'name' => 'Olivera',
+                'owner_id' => $admin?->id ?? $user->id,
+                'slug' => 'olivera',
+            ]);
+
+            $company->unique_hash = Hashids::connection(Company::class)->encode($company->id);
+            $company->save();
+            $company->setupDefaultData();
+        }
+
+        $company->forceFill([
+            'name' => 'Olivera',
+            'owner_id' => $admin?->id ?? $company->owner_id ?? $user->id,
+            'slug' => 'olivera',
+        ])->save();
+
+        $company->setupRoles();
+
+        $user->companies()->syncWithoutDetaching([$company->id]);
         BouncerFacade::scope()->to($company->id);
 
-        $user->assign('super admin');
+        BouncerFacade::sync($user)->roles([Company::ROLE_MID_LEVEL_USER]);
 
         // Set default user settings
         $user->setSettings([
             'language' => 'en',
             'timezone' => 'UTC',
             'date_format' => 'DD-MM-YYYY',
-            'currency_id' => 1, // USD
+            'currency_id' => $bamCurrencyId,
         ]);
 
-        // Set company settings
+        $lowLevelUser = User::firstOrCreate(
+            [
+                'email' => 'low@invoiceshelf.com',
+            ],
+            [
+                'name' => 'low',
+                'role' => Company::ROLE_LOW_LEVEL_OFS_USER,
+                'password' => 'low',
+            ]
+        );
+
+        $lowLevelUser->update([
+            'name' => 'low',
+            'role' => Company::ROLE_LOW_LEVEL_OFS_USER,
+            'password' => 'low',
+        ]);
+
+        $lowLevelUser->companies()->syncWithoutDetaching([$company->id]);
+
+        BouncerFacade::scope()->to($company->id);
+        BouncerFacade::sync($lowLevelUser)->roles([Company::ROLE_LOW_LEVEL_OFS_USER]);
+
+        $lowLevelUser->setSettings([
+            'language' => 'sr',
+            'timezone' => 'UTC',
+            'date_format' => 'DD-MM-YYYY',
+            'currency_id' => $bamCurrencyId,
+        ]);
+
         CompanySetting::setSettings([
-            'currency' => 1,
+            'currency' => $bamCurrencyId,
             'date_format' => 'DD-MM-YYYY',
             'language' => 'en',
             'timezone' => 'UTC',
@@ -64,15 +117,12 @@ class DemoSeeder extends Seeder
             'payment_prefix' => 'PAY-',
         ], $company->id);
 
-        // Create demo customers
         Customer::factory()->count(5)->create([
             'company_id' => $company->id,
         ]);
 
-        // Mark profile setup as complete
         Setting::setSetting('profile_complete', 'COMPLETED');
 
-        // Create installation marker
         InstallUtils::createDbMarker();
     }
 }

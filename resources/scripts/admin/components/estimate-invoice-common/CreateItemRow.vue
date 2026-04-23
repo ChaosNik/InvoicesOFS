@@ -35,6 +35,7 @@
                 />
               </div>
               <BaseInputGroup
+                v-if="showOfsGtin"
                 class="mt-3 ml-7"
                 :label="$t('items.ofs_gtin')"
                 :error="v$.ofs_gtin.$error && v$.ofs_gtin.$errors[0].$message"
@@ -229,6 +230,7 @@ import { sumBy } from 'lodash'
 import abilities from '@/scripts/admin/stub/abilities'
 import {
   required,
+  requiredIf,
   between,
   maxLength,
   helpers,
@@ -372,6 +374,8 @@ const showRemoveButton = computed(() => {
   return true
 })
 
+const showOfsGtin = computed(() => props.store.shouldUseOfs)
+
 const totalSimpleTax = computed(() => {
   return Math.round(
     sumBy(props.itemData.taxes, function (tax) {
@@ -404,7 +408,10 @@ const rules = {
     ),
   },
   ofs_gtin: {
-    required: helpers.withMessage(t('validation.required'), required),
+    required: helpers.withMessage(
+      t('validation.required'),
+      requiredIf(() => props.store.shouldUseOfs)
+    ),
     minLength: helpers.withMessage(
       t('validation.ofs_gtin_min_length', { count: 8 }),
       minLength(8)

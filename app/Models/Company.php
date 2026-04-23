@@ -18,6 +18,12 @@ class Company extends Model implements HasMedia
     use HasFactory;
     use InteractsWithMedia;
 
+    public const ROLE_ADMIN = 'super admin';
+
+    public const ROLE_MID_LEVEL_USER = 'mid level user';
+
+    public const ROLE_LOW_LEVEL_OFS_USER = 'low level OFS user';
+
     protected $guarded = [
         'id',
     ];
@@ -161,15 +167,36 @@ class Company extends Model implements HasMedia
     {
         BouncerFacade::scope()->to($this->id);
 
-        $super_admin = BouncerFacade::role()->firstOrCreate([
-            'name' => 'super admin',
-            'title' => 'Super administrator',
-            'scope' => $this->id,
-        ]);
+        $allAbilities = collect(config('abilities.abilities'))->pluck('ability')->all();
+        $this->syncRoleDefinition(
+            self::ROLE_ADMIN,
+            'Admin',
+            100,
+            $allAbilities,
+            Invoice::ACCESS_SCOPE_ALL,
+            Invoice::ACCESS_SCOPE_ALL,
+            true
+        );
 
-        foreach (config('abilities.abilities') as $ability) {
-            BouncerFacade::allow($super_admin)->to($ability['ability'], $ability['model']);
-        }
+        $this->syncRoleDefinition(
+            self::ROLE_MID_LEVEL_USER,
+            'Mid level user',
+            50,
+            $allAbilities,
+            Invoice::ACCESS_SCOPE_ALL,
+            Invoice::ACCESS_SCOPE_ALL,
+            true
+        );
+
+        $this->syncRoleDefinition(
+            self::ROLE_LOW_LEVEL_OFS_USER,
+            'Low level OFS user',
+            25,
+            $allAbilities,
+            Invoice::ACCESS_SCOPE_OFS_ONLY,
+            Invoice::ACCESS_SCOPE_OFS_ONLY,
+            false
+        );
     }
 
     public function setupDefaultPaymentMethods()
@@ -271,6 +298,47 @@ class Company extends Model implements HasMedia
         $this->setupDefaultSettings();
 
         return true;
+    }
+
+    private function syncRoleDefinition(
+        string $name,
+        string $title,
+        int $level,
+        array $abilities,
+        string $invoiceAccessScope,
+        string $dashboardInvoiceScope,
+        bool $canToggleDashboardInvoiceScope
+    ): void {
+        $role = BouncerFacade::role()->firstOrCreate(
+            [
+                'name' => $name,
+                'scope' => $this->id,
+            ],
+            [
+                'title' => $title,
+                'level' => $level,
+                'invoice_access_scope' => $invoiceAccessScope,
+                'dashboard_invoice_scope' => $dashboardInvoiceScope,
+                'can_toggle_dashboard_invoice_scope' => $canToggleDashboardInvoiceScope,
+            ]
+        );
+
+        $role->forceFill([
+            'title' => $title,
+            'level' => $level,
+            'invoice_access_scope' => $invoiceAccessScope,
+            'dashboard_invoice_scope' => $dashboardInvoiceScope,
+            'can_toggle_dashboard_invoice_scope' => $canToggleDashboardInvoiceScope,
+        ])->save();
+
+        foreach (config('abilities.abilities') as $ability) {
+            if (in_array($ability['ability'], $abilities, true)) {
+                BouncerFacade::allow($role)->to($ability['ability'], $ability['model']);
+                continue;
+            }
+
+            BouncerFacade::disallow($role)->to($ability['ability'], $ability['model']);
+        }
     }
 
     public function deleteCompany($user)

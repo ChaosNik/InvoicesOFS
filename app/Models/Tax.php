@@ -98,12 +98,38 @@ class Tax extends Model
     public function scopeWhereInvoicesFilters($query, array $filters)
     {
         $filters = collect($filters);
+        $invoiceScope = $filters->get('invoice_scope', Invoice::ACCESS_SCOPE_ALL);
+        $start = $filters->get('from_date')
+            ? Carbon::createFromFormat('Y-m-d', $filters->get('from_date'))
+            : null;
+        $end = $filters->get('to_date')
+            ? Carbon::createFromFormat('Y-m-d', $filters->get('to_date'))
+            : null;
 
-        if ($filters->get('from_date') && $filters->get('to_date')) {
-            $start = Carbon::createFromFormat('Y-m-d', $filters->get('from_date'));
-            $end = Carbon::createFromFormat('Y-m-d', $filters->get('to_date'));
-
-            $query->invoicesBetween($start, $end);
+        if ($start && $end || $invoiceScope !== Invoice::ACCESS_SCOPE_ALL) {
+            return $query->where(function ($taxQuery) use ($start, $end, $invoiceScope) {
+                $taxQuery->whereHas('invoice', function ($invoiceQuery) use ($start, $end, $invoiceScope) {
+                    $invoiceQuery->where('paid_status', Invoice::STATUS_PAID)
+                        ->when($start && $end, function ($query) use ($start, $end) {
+                            $query->whereBetween(
+                                'invoice_date',
+                                [$start->format('Y-m-d'), $end->format('Y-m-d')]
+                            );
+                        })
+                        ->applyInvoiceAccessScope($invoiceScope);
+                })->orWhereHas('invoiceItem.invoice', function ($invoiceQuery) use ($start, $end, $invoiceScope) {
+                    $invoiceQuery->where('paid_status', Invoice::STATUS_PAID)
+                        ->when($start && $end, function ($query) use ($start, $end) {
+                            $query->whereBetween(
+                                'invoice_date',
+                                [$start->format('Y-m-d'), $end->format('Y-m-d')]
+                            );
+                        })
+                        ->applyInvoiceAccessScope($invoiceScope);
+                });
+            });
         }
+
+        return $query;
     }
 }

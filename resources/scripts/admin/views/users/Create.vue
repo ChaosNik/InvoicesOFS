@@ -96,7 +96,7 @@
                       track-by="id"
                       autocomplete="off"
                       :content-loading="isFetchingInitialData"
-                      label="name"
+                      label="display_name"
                       :options="userStore.userData.companies[i].roles"
                       :can-deselect="false"
                       :invalid="v.role.$invalid"
@@ -252,6 +252,10 @@ async function loadInitialData() {
     if (res?.data?.data) {
       companies.value = res.data.data.map((r) => {
         r.role = null
+        r.roles = (r.roles || []).map((role) => ({
+          ...role,
+          display_name: role.title || role.name,
+        }))
 
         return r
       })

@@ -25,22 +25,22 @@ class BootstrapController extends Controller
     public function __invoke(Request $request)
     {
         $current_user = $request->user();
+        $companies = $current_user->companies;
+        $current_company = Company::find($request->header('company'));
+
+        if ((! $current_company) || ($current_company && ! $current_user->hasCompany($current_company->id))) {
+            $current_company = $current_user->companies()->first();
+        }
+
         $current_user_settings = $current_user->getAllSettings();
         $current_user_abilities = $current_user->getAbilities();
+        $current_user_access = $current_user->getCurrentCompanyAccess($current_company?->id);
         $is_owner = $current_user->isOwner();
         $current_user->setAttribute('is_owner', $is_owner);
 
         $main_menu = $this->generateMenu('main_menu', $current_user, $current_user_abilities, $is_owner);
 
         $setting_menu = $this->generateMenu('setting_menu', $current_user, $current_user_abilities, $is_owner);
-
-        $companies = $current_user->companies;
-
-        $current_company = Company::find($request->header('company'));
-
-        if ((! $current_company) || ($current_company && ! $current_user->hasCompany($current_company->id))) {
-            $current_company = $current_user->companies()->first();
-        }
 
         $current_company_settings = CompanySetting::getAllSettings($current_company->id);
 
@@ -63,6 +63,7 @@ class BootstrapController extends Controller
             'current_user' => new UserResource($current_user),
             'current_user_settings' => $current_user_settings,
             'current_user_abilities' => $current_user_abilities,
+            'current_user_access' => $current_user_access,
             'companies' => CompanyResource::collection($companies),
             'current_company' => new CompanyResource($current_company),
             'current_company_settings' => $current_company_settings,

@@ -32,6 +32,41 @@ function hasOfsLabel(taxType) {
   return String(taxType?.ofs_label ?? '').trim() !== ''
 }
 
+function resolveInvoiceUseOfs(invoice = {}) {
+  if (invoice.document_type === 'credit_note') {
+    return true
+  }
+
+  if (typeof invoice.use_ofs === 'boolean') {
+    return invoice.use_ofs
+  }
+
+  if (invoice.use_ofs === 1 || invoice.use_ofs === '1' || invoice.use_ofs === 'true') {
+    return true
+  }
+
+  if (invoice.use_ofs === 0 || invoice.use_ofs === '0' || invoice.use_ofs === 'false') {
+    return false
+  }
+
+  return Boolean(
+    invoice.fiscal_status ||
+      invoice.fiscal_invoice_number ||
+      invoice.fiscalized_at ||
+      invoice.fiscal_payment_method_id
+  )
+}
+
+function findDefaultFiscalPaymentMode(paymentModes = []) {
+  return (
+    paymentModes.find((mode) => mode.ofs_payment_type === 'WireTransfer') ||
+    paymentModes.find((mode) =>
+      String(mode?.name ?? '').trim().toLowerCase() === 'bankovni transfer'
+    ) ||
+    paymentModes.find((mode) => mode.ofs_payment_type)
+  )
+}
+
 export const useInvoiceStore = (useWindow = false) => {
   const defineStoreFunc = useWindow ? window.pinia.defineStore : defineStore
   const { global } = window.i18n
@@ -108,6 +143,10 @@ export const useInvoiceStore = (useWindow = false) => {
         return this.getSubtotalWithDiscount + this.getTotalTax
       },
 
+      shouldUseOfs: (state) =>
+        state.newInvoice.document_type === 'credit_note' ||
+        state.newInvoice.use_ofs !== false,
+
       isEdit: (state) => (state.newInvoice.id ? true : false),
     },
 
@@ -166,6 +205,7 @@ export const useInvoiceStore = (useWindow = false) => {
 
       setInvoiceData(invoice) {
         Object.assign(this.newInvoice, invoice)
+        this.newInvoice.use_ofs = resolveInvoiceUseOfs(this.newInvoice)
         this.newInvoice.tax_per_item = normalizeYesNoSetting(
           this.newInvoice.tax_per_item
         )
@@ -215,6 +255,7 @@ export const useInvoiceStore = (useWindow = false) => {
           customer: sourceInvoice.customer,
           customer_id: sourceInvoice.customer_id,
           selectedCurrency: sourceInvoice.customer?.currency,
+          use_ofs: true,
           fiscal_payment_method_id: fiscalPaymentMethodId,
           tax_per_item: normalizeYesNoSetting(sourceInvoice.tax_per_item),
           tax_included: sourceInvoice.tax_included,
@@ -313,6 +354,24 @@ export const useInvoiceStore = (useWindow = false) => {
                     : global.t('invoices.created_message'),
               })
 
+              resolve(response)
+            })
+            .catch((err) => {
+              handleError(err)
+              reject(err)
+            })
+        })
+      },
+
+      importInvoices(data) {
+        return new Promise((resolve, reject) => {
+          axios
+            .post('/api/v1/invoices/import', data, {
+              headers: {
+                'Content-Type': 'multipart/form-data',
+              },
+            })
+            .then((response) => {
               resolve(response)
             })
             .catch((err) => {
@@ -640,6 +699,7 @@ export const useInvoiceStore = (useWindow = false) => {
             await notesStore.fetchNotes()
             this.newInvoice.notes =
               notesStore.getDefaultNoteForType('Invoice')?.notes
+            this.newInvoice.use_ofs = true
             this.newInvoice.tax_per_item = normalizeYesNoSetting(
               companyStore.selectedCompanySettings.tax_per_item
             )
@@ -707,8 +767,8 @@ export const useInvoiceStore = (useWindow = false) => {
               )
             }
 
-            const fiscalPaymentMode = paymentStore.paymentModes.find(
-              (mode) => mode.ofs_payment_type
+            const fiscalPaymentMode = findDefaultFiscalPaymentMode(
+              paymentStore.paymentModes
             )
             this.newInvoice.fiscal_payment_method_id =
               fiscalPaymentMode?.id ?? null

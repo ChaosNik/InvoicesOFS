@@ -33,6 +33,7 @@ export const useDashboardStore = (useWindow = false) => {
 
       recentDueInvoices: [],
       recentEstimates: [],
+      activeInvoiceScope: 'all',
 
       isDashboardDataLoaded: false,
     }),
@@ -71,6 +72,7 @@ export const useDashboardStore = (useWindow = false) => {
               // Dashboard Table Data
               this.recentDueInvoices = response.data.recent_due_invoices
               this.recentEstimates = response.data.recent_estimates
+              this.activeInvoiceScope = response.data.active_invoice_scope || 'all'
 
               this.isDashboardDataLoaded = true
 

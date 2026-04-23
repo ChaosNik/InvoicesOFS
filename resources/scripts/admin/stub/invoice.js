@@ -21,6 +21,7 @@ export default function () {
     discount_type: 'fixed',
     discount_val: 0,
     reference_number: null,
+    use_ofs: true,
     fiscal_payment_method_id: null,
     fiscal_status: null,
     fiscal_invoice_number: null,

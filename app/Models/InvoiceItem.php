@@ -69,12 +69,27 @@ class InvoiceItem extends Model
     public function scopeApplyInvoiceFilters($query, array $filters)
     {
         $filters = collect($filters);
+        $invoiceScope = $filters->get('invoice_scope', Invoice::ACCESS_SCOPE_ALL);
 
         if ($filters->get('from_date') && $filters->get('to_date')) {
             $start = Carbon::createFromFormat('Y-m-d', $filters->get('from_date'));
             $end = Carbon::createFromFormat('Y-m-d', $filters->get('to_date'));
-            $query->invoicesBetween($start, $end);
+
+            return $query->whereHas('invoice', function ($invoiceQuery) use ($start, $end, $invoiceScope) {
+                $invoiceQuery->whereBetween(
+                    'invoice_date',
+                    [$start->format('Y-m-d'), $end->format('Y-m-d')]
+                )->applyInvoiceAccessScope($invoiceScope);
+            });
         }
+
+        if ($invoiceScope !== Invoice::ACCESS_SCOPE_ALL) {
+            return $query->whereHas('invoice', function ($invoiceQuery) use ($invoiceScope) {
+                $invoiceQuery->applyInvoiceAccessScope($invoiceScope);
+            });
+        }
+
+        return $query;
     }
 
     public function scopeItemAttributes($query)

@@ -24,8 +24,11 @@ class DashboardController extends Controller
     public function __invoke(Request $request)
     {
         $company = Company::find($request->header('company'));
+        $user = $request->user();
 
         $this->authorize('view dashboard', $company);
+
+        $invoiceScope = $this->resolveInvoiceScope($request, $user, $company->id);
 
         $invoice_totals = [];
         $expense_totals = [];
@@ -66,6 +69,7 @@ class DashboardController extends Controller
                     [$start->format('Y-m-d'), $end->format('Y-m-d')]
                 )
                     ->whereCompany()
+                    ->applyInvoiceAccessScope($invoiceScope)
                     ->sum('base_total')
             );
             array_push(
@@ -84,6 +88,7 @@ class DashboardController extends Controller
                     [$start->format('Y-m-d'), $end->format('Y-m-d')]
                 )
                     ->whereCompany()
+                    ->applyInvoiceAccessScope($invoiceScope)
                     ->sum('base_amount')
             );
             array_push(
@@ -105,6 +110,7 @@ class DashboardController extends Controller
             [$startDate->format('Y-m-d'), $start->format('Y-m-d')]
         )
             ->whereCompany()
+            ->applyInvoiceAccessScope($invoiceScope)
             ->sum('base_total');
 
         $total_receipts = Payment::whereBetween(
@@ -112,6 +118,7 @@ class DashboardController extends Controller
             [$startDate->format('Y-m-d'), $start->format('Y-m-d')]
         )
             ->whereCompany()
+            ->applyInvoiceAccessScope($invoiceScope)
             ->sum('base_amount');
 
         $total_expenses = Expense::whereBetween(
@@ -133,13 +140,16 @@ class DashboardController extends Controller
 
         $total_customer_count = Customer::whereCompany()->count();
         $total_invoice_count = Invoice::whereCompany()
+            ->applyInvoiceAccessScope($invoiceScope)
             ->count();
         $total_estimate_count = Estimate::whereCompany()->count();
         $total_amount_due = Invoice::whereCompany()
+            ->applyInvoiceAccessScope($invoiceScope)
             ->sum('base_due_amount');
 
         $recent_due_invoices = Invoice::with('customer')
             ->whereCompany()
+            ->applyInvoiceAccessScope($invoiceScope)
             ->where('base_due_amount', '>', 0)
             ->take(5)
             ->latest()
@@ -161,6 +171,20 @@ class DashboardController extends Controller
             'total_receipts' => $total_receipts,
             'total_expenses' => $total_expenses,
             'total_net_income' => $total_net_income,
+            'active_invoice_scope' => $invoiceScope,
         ]);
+    }
+
+    private function resolveInvoiceScope(Request $request, $user, int $companyId): string
+    {
+        $requestedScope = $request->input('invoice_scope', $user->getDashboardInvoiceScope($companyId));
+
+        if (! $user->canViewNonOfsInvoices($companyId)) {
+            return Invoice::ACCESS_SCOPE_OFS_ONLY;
+        }
+
+        return in_array($requestedScope, [Invoice::ACCESS_SCOPE_ALL, Invoice::ACCESS_SCOPE_OFS_ONLY], true)
+            ? $requestedScope
+            : Invoice::ACCESS_SCOPE_ALL;
     }
 }

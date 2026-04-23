@@ -367,6 +367,17 @@ class Payment extends Model implements HasMedia
         $query->where('payments.customer_id', $customer_id);
     }
 
+    public function scopeApplyInvoiceAccessScope($query, string $invoiceScope = Invoice::ACCESS_SCOPE_ALL)
+    {
+        if ($invoiceScope !== Invoice::ACCESS_SCOPE_OFS_ONLY) {
+            return $query;
+        }
+
+        return $query->whereHas('invoice', function ($invoiceQuery) {
+            $invoiceQuery->ofsConnected();
+        });
+    }
+
     public function getPDFData()
     {
         $company = Company::find($this->company_id);

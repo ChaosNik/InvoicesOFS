@@ -8,44 +8,74 @@
       </BaseBreadcrumb>
 
       <template #actions>
-        <BaseButton
-          v-show="invoiceStore.invoiceTotalCount"
-          variant="primary-outline"
-          @click="toggleFilter"
-        >
-          {{ $t('general.filter') }}
-          <template #right="slotProps">
-            <BaseIcon
-              v-if="!showFilters"
-              name="FunnelIcon"
-              :class="slotProps.class"
-            />
-            <BaseIcon v-else name="XMarkIcon" :class="slotProps.class" />
-          </template>
-        </BaseButton>
-
-        <router-link
-          v-if="userStore.hasAbilities(abilities.CREATE_INVOICE) && !isCreditNotesView"
-          to="invoices/create"
-        >
-          <BaseButton variant="primary" class="ml-4">
-            <template #left="slotProps">
-              <BaseIcon name="PlusIcon" :class="slotProps.class" />
+        <div class="flex items-center justify-end space-x-4">
+          <BaseButton
+            v-show="invoiceStore.invoiceTotalCount"
+            variant="primary-outline"
+            @click="toggleFilter"
+          >
+            {{ $t('general.filter') }}
+            <template #right="slotProps">
+              <BaseIcon
+                v-if="!showFilters"
+                name="FunnelIcon"
+                :class="slotProps.class"
+              />
+              <BaseIcon v-else name="XMarkIcon" :class="slotProps.class" />
             </template>
-            {{ $t('invoices.new_invoice') }}
           </BaseButton>
-        </router-link>
 
-        <router-link v-if="isCreditNotesView" to="/admin/invoices">
-          <BaseButton variant="primary-outline" class="ml-4">
-            {{ $t('invoices.back_to_invoices') }}
+          <BaseButton
+            v-if="userStore.currentUserAccess.can_import_legacy_invoices && userStore.hasAbilities(abilities.CREATE_INVOICE) && !isCreditNotesView"
+            variant="primary-outline"
+            :loading="isImporting"
+            :disabled="isImporting"
+            @click="openImportFilePicker"
+          >
+            <template #left="slotProps">
+              <BaseIcon name="ArrowUpTrayIcon" :class="slotProps.class" />
+            </template>
+            {{ $t('invoices.import_csv') }}
           </BaseButton>
-        </router-link>
+
+          <input
+            ref="importFileInput"
+            type="file"
+            class="hidden"
+            accept=".csv,text/csv"
+            @change="importInvoicesFromCsv"
+          >
+
+          <router-link
+            v-if="userStore.hasAbilities(abilities.CREATE_INVOICE) && !isCreditNotesView"
+            to="invoices/create"
+          >
+            <BaseButton variant="primary">
+              <template #left="slotProps">
+                <BaseIcon name="PlusIcon" :class="slotProps.class" />
+              </template>
+              {{ $t('invoices.new_invoice') }}
+            </BaseButton>
+          </router-link>
+
+          <router-link v-if="isCreditNotesView" to="/admin/invoices">
+            <BaseButton variant="primary-outline">
+              {{ $t('invoices.back_to_invoices') }}
+            </BaseButton>
+          </router-link>
+        </div>
       </template>
     </BasePageHeader>
 
     <p v-if="isCreditNotesView" class="mt-4 text-sm text-gray-500">
       {{ $t('invoices.credit_notes_help') }}
+    </p>
+
+    <p
+      v-else-if="userStore.currentUserAccess.invoice_access_scope === 'ofs_only'"
+      class="mt-4 text-sm text-gray-500"
+    >
+      {{ $t('invoices.ofs_only_scope_notice') }}
     </p>
 
     <BaseFilterWrapper
@@ -307,6 +337,8 @@ const utils = inject('$utils')
 const table = ref(null)
 const tableKey = ref(0)
 const showFilters = ref(false)
+const importFileInput = ref(null)
+const isImporting = ref(false)
 
 const status = ref([
   {
@@ -555,6 +587,40 @@ function toggleFilter() {
   }
 
   showFilters.value = !showFilters.value
+}
+
+function openImportFilePicker() {
+  importFileInput.value?.click()
+}
+
+async function importInvoicesFromCsv(event) {
+  const file = event.target.files?.[0]
+
+  if (!file) {
+    return
+  }
+
+  const data = new FormData()
+  data.append('file', file)
+  isImporting.value = true
+
+  try {
+    const response = await invoiceStore.importInvoices(data)
+    const result = response.data.data
+
+    notificationStore.showNotification({
+      type: 'success',
+      message: t('invoices.imported_legacy_message', {
+        created: result.created,
+        skipped: result.skipped,
+      }),
+    })
+
+    refreshTable()
+  } finally {
+    isImporting.value = false
+    event.target.value = ''
+  }
 }
 
 function setActiveTab(val) {

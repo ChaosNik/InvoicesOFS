@@ -1,0 +1,4 @@
+invoice_number,invoice_date,due_date,customer_name,customer_email,customer_tax_id,item_name,item_description,unit_name,quantity,unit_price,line_total,sub_total,tax_total,total,due_amount,currency_code,payment_method,is_ofs,fiscal_receipt_number,fiscalized_at,fiscal_verification_url,notes
+OLD-0001,2026-01-15,2026-01-15,Legacy Kupac,legacy@example.com,1234567890001,Artikal A,Prva stavka,kom,2,10.00,20.00,30.00,0.00,30.00,0.00,BAM,Gotovina,yes,OFS-123,2026-01-15 10:15:00,https://verify.example/1,Uvoz stare OFS fakture
+OLD-0001,2026-01-15,2026-01-15,Legacy Kupac,legacy@example.com,1234567890001,Artikal B,Druga stavka,kom,1,10.00,10.00,30.00,0.00,30.00,0.00,BAM,Gotovina,yes,OFS-123,2026-01-15 10:15:00,https://verify.example/1,Uvoz stare OFS fakture
+OLD-0002,2026-01-20,2026-01-27,Stari kupac bez OFS-a,old@example.com,,Usluga,Historijska nefiskalna faktura,kom,1,50.00,50.00,50.00,0.00,50.00,50.00,BAM,Bankovni transfer,no,,,,Uvoz stare nefiskalne fakture

@@ -151,6 +151,10 @@
     "monthly_chart": {
       "title": "Sales & Expenses"
     },
+    "invoice_scope": {
+      "ofs_only": "OFS invoices only",
+      "all_invoices": "All invoices"
+    },
     "recent_invoices_card": {
       "title": "Due Invoices",
       "due_on": "Due On",
@@ -425,7 +429,10 @@
     "sub_total": "Sub Total",
     "invoice": "Invoice | Invoices",
     "invoice_number": "Invoice Number",
+    "fiscalization_mode": "Fiscalization",
     "fiscal_payment_mode": "OFS Fiscal Payment Mode",
+    "with_ofs": "With OFS",
+    "without_ofs": "Without OFS",
     "fiscal_receipt_number": "OFS fiscal receipt no.",
     "fiscal_status": "Fiscalization status",
     "fiscalization_pending": "Fiscalization pending",
@@ -516,7 +523,10 @@
     "no_credit_notes": "No credit notes yet!",
     "list_of_credit_notes": "This section will contain the list of credit notes.",
     "credit_notes_help": "Credit notes are created from an already fiscalized invoice.",
-    "back_to_invoices": "Back to invoices"
+    "back_to_invoices": "Back to invoices",
+    "import_csv": "Import CSV",
+    "imported_legacy_message": "Imported {created} old invoices, skipped {skipped}.",
+    "ofs_only_scope_notice": "This account can work only with OFS-connected invoices."
   },
   "recurring_invoices": {
     "title": "Recurring Invoices",

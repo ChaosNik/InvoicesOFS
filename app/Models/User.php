@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\HasApiTokens;
 use Silber\Bouncer\BouncerFacade;
 use Silber\Bouncer\Database\HasRolesAndAbilities;
+use Silber\Bouncer\Database\Role;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
@@ -337,6 +338,69 @@ class User extends Authenticatable implements HasMedia
         return false;
     }
 
+    public function getCompanyRole(?int $companyId = null): ?Role
+    {
+        $companyId = $companyId ?? request()->header('company');
+
+        if (! $companyId) {
+            return null;
+        }
+
+        return $this->roles()->where('roles.scope', $companyId)->first();
+    }
+
+    public function getInvoiceAccessScope(?int $companyId = null): string
+    {
+        return $this->getCompanyRole($companyId)?->invoice_access_scope ?? Invoice::ACCESS_SCOPE_ALL;
+    }
+
+    public function getDashboardInvoiceScope(?int $companyId = null): string
+    {
+        return $this->getCompanyRole($companyId)?->dashboard_invoice_scope ?? $this->getInvoiceAccessScope($companyId);
+    }
+
+    public function mustUseOfsInvoices(?int $companyId = null): bool
+    {
+        return $this->getInvoiceAccessScope($companyId) === Invoice::ACCESS_SCOPE_OFS_ONLY;
+    }
+
+    public function canToggleDashboardInvoiceScope(?int $companyId = null): bool
+    {
+        return (bool) ($this->getCompanyRole($companyId)?->can_toggle_dashboard_invoice_scope ?? false);
+    }
+
+    public function canViewNonOfsInvoices(?int $companyId = null): bool
+    {
+        return ! $this->mustUseOfsInvoices($companyId);
+    }
+
+    public function canImportLegacyInvoices(?int $companyId = null): bool
+    {
+        return $this->canViewNonOfsInvoices($companyId);
+    }
+
+    public function canAccessInvoice(Invoice $invoice, ?int $companyId = null): bool
+    {
+        if ($this->canViewNonOfsInvoices($companyId ?? $invoice->company_id)) {
+            return true;
+        }
+
+        return $invoice->isOfsConnected();
+    }
+
+    public function getCurrentCompanyAccess(?int $companyId = null): array
+    {
+        $companyId = (int) ($companyId ?? request()->header('company'));
+
+        return [
+            'invoice_access_scope' => $this->getInvoiceAccessScope($companyId),
+            'default_dashboard_invoice_scope' => $this->getDashboardInvoiceScope($companyId),
+            'can_toggle_dashboard_invoice_scope' => $this->canToggleDashboardInvoiceScope($companyId),
+            'can_view_non_ofs_invoices' => $this->canViewNonOfsInvoices($companyId),
+            'can_import_legacy_invoices' => $this->canImportLegacyInvoices($companyId),
+        ];
+    }
+
     public static function createFromRequest(UserRequest $request)
     {
         $user = self::create($request->getUserPayload());
@@ -354,6 +418,12 @@ class User extends Authenticatable implements HasMedia
             BouncerFacade::sync($user)->roles([$company['role']]);
         }
 
+        if ($companies->isNotEmpty()) {
+            $user->update([
+                'role' => $companies->first()['role'],
+            ]);
+        }
+
         return $user;
     }
 
@@ -368,6 +438,12 @@ class User extends Authenticatable implements HasMedia
             BouncerFacade::scope()->to($company['id']);
 
             BouncerFacade::sync($this)->roles([$company['role']]);
+        }
+
+        if ($companies->isNotEmpty()) {
+            $this->update([
+                'role' => $companies->first()['role'],
+            ]);
         }
 
         return $this;

@@ -17,10 +17,32 @@
         "
       >
         <div class="flex justify-between mt-1 mb-4 flex-col md:flex-row">
-          <h6 class="flex items-center sw-section-title h-10">
-            <BaseIcon name="ChartBarSquareIcon" class="text-primary-400 mr-1" />
-            {{ $t('dashboard.monthly_chart.title') }}
-          </h6>
+          <div class="flex flex-col gap-3 md:flex-row md:items-center">
+            <h6 class="flex items-center sw-section-title h-10">
+              <BaseIcon name="ChartBarSquareIcon" class="text-primary-400 mr-1" />
+              {{ $t('dashboard.monthly_chart.title') }}
+            </h6>
+
+            <div
+              v-if="userStore.currentUserAccess.can_toggle_dashboard_invoice_scope"
+              class="flex flex-wrap gap-2"
+            >
+              <BaseButton
+                size="sm"
+                :variant="selectedInvoiceScope === 'ofs_only' ? 'primary' : 'primary-outline'"
+                @click="selectedInvoiceScope = 'ofs_only'"
+              >
+                {{ $t('dashboard.invoice_scope.ofs_only') }}
+              </BaseButton>
+              <BaseButton
+                size="sm"
+                :variant="selectedInvoiceScope === 'all' ? 'primary' : 'primary-outline'"
+                @click="selectedInvoiceScope = 'all'"
+              >
+                {{ $t('dashboard.invoice_scope.all_invoices') }}
+              </BaseButton>
+            </div>
+          </div>
 
           <div class="w-full my-2 md:m-0 md:w-40 h-10">
             <BaseMultiselect
@@ -167,23 +189,30 @@ const userStore = useUserStore()
 const years = ref( [{label: t('dateRange.this_year'), value: 'This year'}, {label: t( 'dateRange.previous_year'), value:
   'Previous year'}])
 const selectedYear = ref('This year')
+const selectedInvoiceScope = ref(
+  userStore.currentUserAccess.default_dashboard_invoice_scope || 'all'
+)
 
 watch(
-  selectedYear,
-  (val) => {
-    if (val === 'Previous year') {
-      let params = { previous_year: true }
-      loadData(params)
-    } else {
-      loadData()
+  [selectedYear, selectedInvoiceScope],
+  ([year]) => {
+    const params = {
+      invoice_scope: selectedInvoiceScope.value,
     }
+
+    if (year === 'Previous year') {
+      params.previous_year = true
+    }
+
+    loadData(params)
   },
   { immediate: true }
 )
 
 async function loadData(params) {
   if (userStore.hasAbilities(abilities.DASHBOARD)) {
-    await dashboardStore.loadData(params)
+    const response = await dashboardStore.loadData(params)
+    selectedInvoiceScope.value = response?.data?.active_invoice_scope || selectedInvoiceScope.value
   }
 }
 </script>

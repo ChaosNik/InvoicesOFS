@@ -14,6 +14,13 @@ export const useUserStore = (useWindow = false) => {
       currentUser: null,
       currentAbilities: [],
       currentUserSettings: {},
+      currentUserAccess: {
+        invoice_access_scope: 'all',
+        default_dashboard_invoice_scope: 'all',
+        can_toggle_dashboard_invoice_scope: false,
+        can_view_non_ofs_invoices: true,
+        can_import_legacy_invoices: true,
+      },
 
       userForm: {
         name: '',

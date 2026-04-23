@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\CompanySetting;
 use App\Models\Currency;
+use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -29,9 +30,13 @@ class ItemSalesReportController extends Controller
         $locale = CompanySetting::getSetting('language', $company->id);
 
         App::setLocale($locale);
+        $invoiceScope = $this->resolveInvoiceScope($request, $company->id);
 
         $items = InvoiceItem::whereCompany($company->id)
-            ->applyInvoiceFilters($request->only(['from_date', 'to_date']))
+            ->applyInvoiceFilters([
+                ...$request->only(['from_date', 'to_date']),
+                'invoice_scope' => $invoiceScope,
+            ])
             ->itemAttributes()
             ->get();
 
@@ -80,5 +85,19 @@ class ItemSalesReportController extends Controller
         }
 
         return $pdf->stream();
+    }
+
+    private function resolveInvoiceScope(Request $request, int $companyId): string
+    {
+        $user = $request->user();
+        $requestedScope = $request->input('invoice_scope', $user->getDashboardInvoiceScope($companyId));
+
+        if (! $user->canViewNonOfsInvoices($companyId)) {
+            return Invoice::ACCESS_SCOPE_OFS_ONLY;
+        }
+
+        return in_array($requestedScope, [Invoice::ACCESS_SCOPE_ALL, Invoice::ACCESS_SCOPE_OFS_ONLY], true)
+            ? $requestedScope
+            : Invoice::ACCESS_SCOPE_ALL;
     }
 }

@@ -178,7 +178,7 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue'])
 
-let selectedValue = ref(props.modelValue)
+let selectedValue = ref(null)
 
 function isObject(val) {
   return typeof val === 'object' && val !== null
@@ -191,24 +191,38 @@ function getValue(val) {
   return val
 }
 
+function syncSelectedValue() {
+  if (props.valueProp && props.options.length) {
+    const modelValue = isObject(props.modelValue)
+      ? props.modelValue[props.valueProp]
+      : props.modelValue
+
+    const matchedOption = props.options.find((option) => {
+      return option?.[props.valueProp] === modelValue
+    })
+
+    selectedValue.value = matchedOption ?? (isObject(props.modelValue) ? props.modelValue : null)
+    return
+  }
+
+  selectedValue.value = props.modelValue
+}
+
 watch(
-  () => props.modelValue,
-  () => {
-    if (props.valueProp && props.options.length) {
-      selectedValue.value = props.options.find((val) => {
-        if (val[props.valueProp]) {
-          return val[props.valueProp] === props.modelValue
-        }
-      })
-    } else {
-      selectedValue.value = props.modelValue
-    }
+  () => [props.modelValue, props.options],
+  syncSelectedValue,
+  {
+    immediate: true,
+    deep: true,
   }
 )
 
 watch(selectedValue, (val) => {
   if (props.valueProp) {
-    emit('update:modelValue', val[props.valueProp])
+    emit(
+      'update:modelValue',
+      isObject(val) ? (val[props.valueProp] ?? null) : (val ?? null)
+    )
   } else {
     emit('update:modelValue', val)
   }

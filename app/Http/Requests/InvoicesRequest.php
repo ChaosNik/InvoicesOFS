@@ -25,6 +25,8 @@ class InvoicesRequest extends FormRequest
      */
     public function rules(): array
     {
+        $shouldFiscalize = $this->shouldFiscalize();
+
         $rules = [
             'invoice_date' => [
                 'required',
@@ -42,6 +44,10 @@ class InvoicesRequest extends FormRequest
             'document_type' => [
                 'nullable',
                 Rule::in([Invoice::DOCUMENT_TYPE_INVOICE, Invoice::DOCUMENT_TYPE_CREDIT_NOTE]),
+            ],
+            'use_ofs' => [
+                'nullable',
+                'boolean',
             ],
             'original_invoice_id' => [
                 Rule::requiredIf(fn () => $this->input('document_type') === Invoice::DOCUMENT_TYPE_CREDIT_NOTE),
@@ -80,11 +86,17 @@ class InvoicesRequest extends FormRequest
             'template_name' => [
                 'required',
             ],
-            'fiscal_payment_method_id' => [
-                'required',
-                Rule::exists('payment_methods', 'id')
-                    ->where('company_id', $this->header('company')),
-            ],
+            'fiscal_payment_method_id' => $shouldFiscalize
+                ? [
+                    'required',
+                    Rule::exists('payment_methods', 'id')
+                        ->where('company_id', $this->header('company')),
+                ]
+                : [
+                    'nullable',
+                    Rule::exists('payment_methods', 'id')
+                        ->where('company_id', $this->header('company')),
+                ],
             'items' => [
                 'required',
                 'array',
@@ -107,12 +119,18 @@ class InvoicesRequest extends FormRequest
                 'numeric',
                 'required',
             ],
-            'items.*.ofs_gtin' => [
-                'required',
-                'string',
-                'min:8',
-                'max:14',
-            ],
+            'items.*.ofs_gtin' => $shouldFiscalize
+                ? [
+                    'required',
+                    'string',
+                    'min:8',
+                    'max:14',
+                ]
+                : [
+                    'nullable',
+                    'string',
+                    'max:14',
+                ],
         ];
 
         $companyCurrency = CompanySetting::getSetting('currency', $this->header('company'));
@@ -136,17 +154,44 @@ class InvoicesRequest extends FormRequest
             ];
         }
 
-        $paymentMethod = PaymentMethod::where('id', $this->fiscal_payment_method_id)
-            ->where('company_id', $this->header('company'))
-            ->first();
+        if ($shouldFiscalize) {
+            $paymentMethod = PaymentMethod::where('id', $this->fiscal_payment_method_id)
+                ->where('company_id', $this->header('company'))
+                ->first();
 
-        if (! $paymentMethod?->ofs_payment_type) {
-            $rules['fiscal_payment_method_id'][] = function ($attribute, $value, $fail) {
-                $fail('The selected payment mode must have an OFS payment type.');
-            };
+            if (! $paymentMethod?->ofs_payment_type) {
+                $rules['fiscal_payment_method_id'][] = function ($attribute, $value, $fail) {
+                    $fail('The selected payment mode must have an OFS payment type.');
+                };
+            }
         }
 
         return $rules;
+    }
+
+    public function shouldFiscalize(): bool
+    {
+        if ($this->input('document_type') === Invoice::DOCUMENT_TYPE_CREDIT_NOTE) {
+            return true;
+        }
+
+        $companyId = (int) $this->header('company');
+
+        if ($this->user() && $this->user()->mustUseOfsInvoices($companyId)) {
+            return true;
+        }
+
+        if ($this->has('use_ofs')) {
+            return $this->boolean('use_ofs');
+        }
+
+        $invoice = $this->route('invoice');
+
+        if ($this->isMethod('PUT') && $invoice instanceof Invoice) {
+            return $invoice->shouldUseOfs();
+        }
+
+        return true;
     }
 
     public function withValidator($validator): void
@@ -204,7 +249,7 @@ class InvoicesRequest extends FormRequest
             : null;
         $dueAmount = $isCreditNote ? 0 : $this->total;
 
-        return collect($this->except('items', 'taxes'))
+        return collect($this->except('items', 'taxes', 'use_ofs'))
             ->merge([
                 'creator_id' => $this->user()->id ?? null,
                 'status' => $isCreditNote ? Invoice::STATUS_COMPLETED : ($this->has('invoiceSend') ? Invoice::STATUS_SENT : Invoice::STATUS_DRAFT),
@@ -227,6 +272,7 @@ class InvoicesRequest extends FormRequest
                 'base_tax' => $this->tax * $exchange_rate,
                 'base_due_amount' => $dueAmount * $exchange_rate,
                 'currency_id' => $currency,
+                'fiscal_payment_method_id' => $this->shouldFiscalize() ? $this->fiscal_payment_method_id : null,
             ])
             ->toArray();
     }

@@ -86,6 +86,13 @@ export const useGlobalStore = (useWindow = false) => {
         userStore.currentUser = data.current_user || null
         userStore.currentUserSettings = data.current_user_settings || {}
         userStore.currentAbilities = data.current_user_abilities || []
+        userStore.currentUserAccess = data.current_user_access || {
+          invoice_access_scope: 'all',
+          default_dashboard_invoice_scope: 'all',
+          can_toggle_dashboard_invoice_scope: false,
+          can_view_non_ofs_invoices: true,
+          can_import_legacy_invoices: true,
+        }
 
         moduleStore.apiToken = data.global_settings?.api_token
         moduleStore.enableModules = data.modules || []

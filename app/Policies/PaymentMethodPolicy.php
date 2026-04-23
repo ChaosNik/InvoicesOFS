@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
 use App\Models\User;
@@ -19,7 +20,11 @@ class PaymentMethodPolicy
      */
     public function viewAny(User $user): bool
     {
-        if (BouncerFacade::can('view-payment', Payment::class)) {
+        if (
+            BouncerFacade::can('view-payment', Payment::class)
+            || BouncerFacade::can('create-invoice', Invoice::class)
+            || BouncerFacade::can('edit-invoice', Invoice::class)
+        ) {
             return true;
         }
 
@@ -33,7 +38,14 @@ class PaymentMethodPolicy
      */
     public function view(User $user, PaymentMethod $paymentMethod): bool
     {
-        if (BouncerFacade::can('view-payment', Payment::class) && $user->hasCompany($paymentMethod->company_id)) {
+        if (
+            (
+                BouncerFacade::can('view-payment', Payment::class)
+                || BouncerFacade::can('create-invoice', Invoice::class)
+                || BouncerFacade::can('edit-invoice', Invoice::class)
+            )
+            && $user->hasCompany($paymentMethod->company_id)
+        ) {
             return true;
         }
 

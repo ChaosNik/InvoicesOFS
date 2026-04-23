@@ -141,10 +141,30 @@
       <li class="relative block float-left ml-2">
         <BaseDropdown width-class="w-48">
           <template #activator>
-            <img
-              :src="previewAvatar"
-              class="block w-8 h-8 rounded md:h-9 md:w-9 object-cover"
-            />
+            <div
+              class="
+                flex
+                items-center
+                pl-2
+                pr-1
+                h-8
+                md:h-9
+                bg-white
+                rounded
+                cursor-pointer
+                bg-opacity-20
+              "
+            >
+              <span
+                class="hidden max-w-[8rem] mr-2 text-sm font-medium text-white truncate lg:block"
+              >
+                {{ currentUserLabel }}
+              </span>
+              <img
+                :src="previewAvatar"
+                class="block w-8 h-8 rounded md:h-9 md:w-9 object-cover"
+              />
+            </div>
           </template>
 
           <router-link to="/admin/settings/account-settings">
@@ -194,6 +214,14 @@ const previewAvatar = computed(() => {
   return userStore.currentUser && userStore.currentUser.avatar !== 0
     ? userStore.currentUser.avatar
     : getDefaultAvatar()
+})
+
+const currentUserLabel = computed(() => {
+  return (
+    userStore.currentUser?.name ||
+    userStore.currentUser?.email ||
+    'User'
+  )
 })
 
 const adminLogo = computed(() => {

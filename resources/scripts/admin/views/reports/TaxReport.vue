@@ -38,6 +38,26 @@
         </BaseInputGroup>
       </div>
 
+      <div
+        v-if="userStore.currentUserAccess.can_toggle_dashboard_invoice_scope"
+        class="flex flex-wrap gap-2 mt-6"
+      >
+        <BaseButton
+          size="sm"
+          :variant="selectedInvoiceScope === 'ofs_only' ? 'primary' : 'primary-outline'"
+          @click="selectedInvoiceScope = 'ofs_only'"
+        >
+          {{ $t('dashboard.invoice_scope.ofs_only') }}
+        </BaseButton>
+        <BaseButton
+          size="sm"
+          :variant="selectedInvoiceScope === 'all' ? 'primary' : 'primary-outline'"
+          @click="selectedInvoiceScope = 'all'"
+        >
+          {{ $t('dashboard.invoice_scope.all_invoices') }}
+        </BaseButton>
+      </div>
+
       <BaseButton
         variant="primary-outline"
         class="content-center hidden mt-0 w-md md:flex md:mt-8"
@@ -91,7 +111,9 @@ import moment from 'moment'
 import { useCompanyStore } from '@/scripts/admin/stores/company'
 import { useI18n } from 'vue-i18n'
 import { useGlobalStore } from '@/scripts/admin/stores/global'
+import { useUserStore } from '@/scripts/admin/stores/user'
 const globalStore = useGlobalStore()
+const userStore = useUserStore()
 
 globalStore.downloadReport = downloadReport
 
@@ -141,6 +163,9 @@ const dateRange = reactive([
 ])
 
 const selectedRange = ref(dateRange[2])
+const selectedInvoiceScope = ref(
+  userStore.currentUserAccess.default_dashboard_invoice_scope || 'all'
+)
 
 const formData = reactive({
   from_date: moment().startOf('month').format('YYYY-MM-DD').toString(),
@@ -158,6 +183,14 @@ const getSelectedCompany = computed(() => {
   return companyStore.selectedCompany
 })
 
+const resolvedInvoiceScope = computed(() => {
+  if (userStore.currentUserAccess.invoice_access_scope === 'ofs_only') {
+    return 'ofs_only'
+  }
+
+  return selectedInvoiceScope.value || 'all'
+})
+
 let siteURL = ref(null)
 
 onMounted(() => {
@@ -168,7 +201,7 @@ onMounted(() => {
 const dateRangeUrl = computed(() => {
   return `${siteURL.value}?from_date=${moment(formData.from_date).format(
     'YYYY-MM-DD'
-  )}&to_date=${moment(formData.to_date).format('YYYY-MM-DD')}`
+  )}&to_date=${moment(formData.to_date).format('YYYY-MM-DD')}&invoice_scope=${resolvedInvoiceScope.value}`
 })
 
 let range = ref(new Date())
@@ -176,6 +209,10 @@ let range = ref(new Date())
 watch(range.value, (newRange) => {
   formData.from_date = moment(newRange).startOf('year').toString()
   formData.to_date = moment(newRange).endOf('year').toString()
+})
+
+watch(selectedInvoiceScope, () => {
+  getReports()
 })
 
 function getThisDate(type, time) {
