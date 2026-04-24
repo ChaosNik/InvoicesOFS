@@ -49,6 +49,8 @@
 <script type="text/babel" setup>
 import FlatPickr from 'vue-flatpickr-component'
 import 'flatpickr/dist/flatpickr.css'
+import 'flatpickr/dist/plugins/confirmDate/confirmDate.css'
+import confirmDatePlugin from 'flatpickr/dist/plugins/confirmDate/confirmDate.js'
 import { Arabic } from 'flatpickr/dist/l10n/ar.js'
 import { Czech } from 'flatpickr/dist/l10n/cs.js'
 import { German } from 'flatpickr/dist/l10n/de.js'
@@ -126,6 +128,14 @@ const props = defineProps({
   time24hr: {
     type: Boolean,
     default: false,
+  },
+  showConfirmButton: {
+    type: Boolean,
+    default: false,
+  },
+  confirmText: {
+    type: String,
+    default: 'OK',
   },
 })
 
@@ -240,7 +250,9 @@ let config = reactive({
   altInput: true,
   enableTime: props.enableTime,
   time_24hr: props.time24hr,
-  locale: fpLocale
+  closeOnSelect: true,
+  locale: fpLocale,
+  plugins: []
 })
 
 const date = computed({
@@ -298,6 +310,28 @@ watch(
     if (props.enableTime) {
       config.enableTime = props.enableTime
     }
+  },
+  { immediate: true }
+)
+
+watch(
+  () => [props.showConfirmButton, props.confirmText],
+  () => {
+    if (props.showConfirmButton) {
+      config.plugins = [
+        confirmDatePlugin({
+          confirmText: props.confirmText,
+          showAlways: true,
+          theme: 'light',
+        }),
+      ]
+      config.closeOnSelect = false
+
+      return
+    }
+
+    config.plugins = []
+    config.closeOnSelect = true
   },
   { immediate: true }
 )

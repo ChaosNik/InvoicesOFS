@@ -1,6 +1,6 @@
 <template>
   <BaseCard class="flex flex-col mt-6">
-    <ChartPlaceholder v-if="customerStore.isFetchingViewData" />
+    <ChartPlaceholder v-if="showInitialPlaceholder" />
 
     <div v-else class="grid grid-cols-12">
       <div class="col-span-12 xl:col-span-9 xxl:col-span-10">
@@ -30,18 +30,18 @@
               class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:flex md:gap-3"
             >
               <BaseInputGroup :label="$t('general.from_date')" class="w-full md:w-40">
-                <BaseInput
+                <BaseDatePicker
                   v-model="customRange.from"
-                  type="date"
-                  :max="customRange.to || undefined"
+                  show-confirm-button
+                  confirm-text="OK"
                 />
               </BaseInputGroup>
 
               <BaseInputGroup :label="$t('general.to_date')" class="w-full md:w-40">
-                <BaseInput
+                <BaseDatePicker
                   v-model="customRange.to"
-                  type="date"
-                  :min="customRange.from || undefined"
+                  show-confirm-button
+                  confirm-text="OK"
                 />
               </BaseInputGroup>
             </div>
@@ -162,6 +162,7 @@
 </template>
 
 <script setup>
+import { debouncedWatch } from '@vueuse/core'
 import CustomerInfo from './CustomerInfo.vue'
 import LineChart from '@/scripts/admin/components/charts/LineChart.vue'
 import { ref, computed, watch, reactive } from 'vue'
@@ -187,6 +188,9 @@ const periodOptions = computed(() => [
 ])
 const selectedPeriod = ref('this_year')
 const customRange = reactive(getDefaultCustomRange())
+const showInitialPlaceholder = computed(
+  () => customerStore.isFetchingViewData && !data.id
+)
 
 const getChartExpenses = computed(() => {
   if (chartData.expenseTotals) {
@@ -242,7 +246,7 @@ watch(
 )
 
 watch(
-  [selectedPeriod, () => customRange.from, () => customRange.to],
+  selectedPeriod,
   () => {
     if (!route.params.id) {
       return
@@ -258,8 +262,29 @@ watch(
   }
 )
 
+debouncedWatch(
+  [() => customRange.from, () => customRange.to],
+  () => {
+    if (selectedPeriod.value !== 'custom' || !route.params.id) {
+      return
+    }
+
+    const params = buildCustomerParams()
+
+    if (!params) {
+      return
+    }
+
+    loadCustomer(params)
+  },
+  { debounce: 300 }
+)
+
 async function loadCustomer(params = { id: route.params.id }) {
-  isLoading.value = false
+  if (!data.id) {
+    isLoading.value = false
+  }
+
   let response = await customerStore.fetchViewCustomer(params)
 
   if (response.data) {

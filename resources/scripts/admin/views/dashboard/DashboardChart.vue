@@ -64,18 +64,18 @@
               class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:flex md:gap-3"
             >
               <BaseInputGroup :label="$t('general.from_date')" class="w-full md:w-40">
-                <BaseInput
+                <BaseDatePicker
                   v-model="customRange.from"
-                  type="date"
-                  :max="customRange.to || undefined"
+                  show-confirm-button
+                  confirm-text="OK"
                 />
               </BaseInputGroup>
 
               <BaseInputGroup :label="$t('general.to_date')" class="w-full md:w-40">
-                <BaseInput
+                <BaseDatePicker
                   v-model="customRange.to"
-                  type="date"
-                  :min="customRange.from || undefined"
+                  show-confirm-button
+                  confirm-text="OK"
                 />
               </BaseInputGroup>
             </div>
@@ -197,6 +197,7 @@
 </template>
 
 <script setup>
+import { debouncedWatch } from '@vueuse/core'
 import { computed, reactive, ref, watch } from 'vue'
 import { useDashboardStore } from '@/scripts/admin/stores/dashboard'
 import { useCompanyStore } from '@/scripts/admin/stores/company'
@@ -223,7 +224,7 @@ const selectedInvoiceScope = ref(
 const customRange = reactive(getDefaultCustomRange())
 
 watch(
-  [selectedPeriod, selectedInvoiceScope, () => customRange.from, () => customRange.to],
+  [selectedPeriod, selectedInvoiceScope],
   () => {
     const params = buildDashboardParams()
 
@@ -234,6 +235,24 @@ watch(
     loadData(params)
   },
   { immediate: true }
+)
+
+debouncedWatch(
+  [() => customRange.from, () => customRange.to],
+  () => {
+    if (selectedPeriod.value !== 'custom') {
+      return
+    }
+
+    const params = buildDashboardParams()
+
+    if (!params) {
+      return
+    }
+
+    loadData(params)
+  },
+  { debounce: 300 }
 )
 
 async function loadData(params) {
