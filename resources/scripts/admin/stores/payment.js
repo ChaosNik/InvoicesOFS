@@ -18,6 +18,7 @@ export const usePaymentStore = (useWindow = false) => {
     state: () => ({
       payments: [],
       paymentTotalCount: 0,
+      cachedCompanyId: null,
 
       selectAllField: false,
       selectedPayments: [],
@@ -57,6 +58,24 @@ export const usePaymentStore = (useWindow = false) => {
     },
 
     actions: {
+      ensureCacheScope() {
+        const companyStore = useCompanyStore()
+        const companyId =
+          companyStore.selectedCompany?.id || window.Ls?.get('selectedCompany') || null
+
+        if (this.cachedCompanyId === companyId) {
+          return companyId
+        }
+
+        this.cachedCompanyId = companyId
+        this.paymentModes = []
+        this.paymentModesLoaded = false
+        this.payments = []
+        this.paymentTotalCount = 0
+
+        return companyId
+      },
+
       fetchPaymentInitialData(isEdit) {
         const companyStore = useCompanyStore()
         const notesStore = useNotesStore()
@@ -101,6 +120,7 @@ export const usePaymentStore = (useWindow = false) => {
 
       fetchPayments(params) {
         return new Promise((resolve, reject) => {
+          this.ensureCacheScope()
           axios
             .get(`/api/v1/payments`, { params })
             .then((response) => {
@@ -333,6 +353,7 @@ export const usePaymentStore = (useWindow = false) => {
 
       fetchPaymentModes(params) {
         return new Promise((resolve, reject) => {
+          this.ensureCacheScope()
           const requestParams = { ...(params || {}) }
           delete requestParams.background
 

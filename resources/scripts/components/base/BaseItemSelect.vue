@@ -37,7 +37,7 @@
       label="name"
       :filterResults="false"
       resolve-on-load
-      :delay="500"
+      :delay="150"
       searchable
       :options="searchItems"
       object

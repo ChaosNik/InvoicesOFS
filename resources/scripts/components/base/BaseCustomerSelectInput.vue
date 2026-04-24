@@ -7,7 +7,7 @@
     label="name"
     :filter-results="false"
     resolve-on-load
-    :delay="500"
+    :delay="150"
     :searchable="true"
     :options="searchCustomers"
     label-value="name"

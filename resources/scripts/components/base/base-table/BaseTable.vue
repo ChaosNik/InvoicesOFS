@@ -46,7 +46,11 @@
               </tr>
             </thead>
             <tbody
-              v-if="loadingType === 'placeholder' && (loading || isLoading)"
+              v-if="
+                loadingType === 'placeholder' &&
+                (loading || isLoading) &&
+                rows.length === 0
+              "
             >
               <tr
                 v-for="placeRow in placeholderCount"
@@ -92,7 +96,11 @@
           </table>
 
           <div
-            v-if="loadingType === 'spinner' && (loading || isLoading)"
+            v-if="
+              (loadingType === 'spinner' ||
+                (loadingType === 'placeholder' && rows.length > 0)) &&
+              (loading || isLoading)
+            "
             class="
               absolute
               top-0

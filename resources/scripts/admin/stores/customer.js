@@ -7,6 +7,11 @@ import { useGlobalStore } from '@/scripts/admin/stores/global'
 import { useCompanyStore } from '@/scripts/admin/stores/company'
 import addressStub from '@/scripts/admin/stub/address.js'
 import customerStub from '@/scripts/admin/stub/customer'
+import {
+  buildScopedListCacheKey,
+  paginateCachedRecords,
+  sortCachedRecords,
+} from '@/scripts/helpers/list-cache'
 
 export const useCustomerStore = (useWindow = false) => {
   const defineStoreFunc = useWindow ? window.pinia.defineStore : defineStore
@@ -18,6 +23,8 @@ export const useCustomerStore = (useWindow = false) => {
       customers: [],
       allCustomersCache: [],
       allCustomersCacheLoaded: false,
+      cachedCompanyId: null,
+      listResponseCache: {},
       totalCustomers: 0,
       selectAllField: false,
       selectedCustomers: [],
@@ -39,6 +46,31 @@ export const useCustomerStore = (useWindow = false) => {
         this.currentCustomer = {
           ...customerStub(),
         }
+      },
+
+      ensureCacheScope() {
+        const companyStore = useCompanyStore()
+        const companyId =
+          companyStore.selectedCompany?.id || window.Ls?.get('selectedCompany') || null
+
+        if (this.cachedCompanyId === companyId) {
+          return companyId
+        }
+
+        this.cachedCompanyId = companyId
+        this.allCustomersCache = []
+        this.allCustomersCacheLoaded = false
+        this.listResponseCache = {}
+        this.customers = []
+        this.totalCustomers = 0
+
+        return companyId
+      },
+
+      invalidateCustomerCaches() {
+        this.allCustomersCache = []
+        this.allCustomersCacheLoaded = false
+        this.listResponseCache = {}
       },
 
       copyAddress() {
@@ -77,17 +109,19 @@ export const useCustomerStore = (useWindow = false) => {
 
       fetchCustomers(params) {
         return new Promise((resolve, reject) => {
+          const companyId = this.ensureCacheScope()
           const requestParams = { ...(params || {}) }
           delete requestParams.background
 
           const hasPage = !!requestParams.page
-          const search = (
-            requestParams.search ||
-            requestParams.display_name ||
-            ''
-          )
+          const search = (requestParams.search || '').toString().toLowerCase()
+          const displayName = (requestParams.display_name || '')
             .toString()
             .toLowerCase()
+          const contactName = (requestParams.contact_name || '')
+            .toString()
+            .toLowerCase()
+          const phone = (requestParams.phone || '').toString().toLowerCase()
           const isMenuRequest =
             !hasPage &&
             (!requestParams.filter ||
@@ -96,32 +130,92 @@ export const useCustomerStore = (useWindow = false) => {
             !requestParams.orderBy &&
             !requestParams.customer_id
 
-          if (isMenuRequest && !search) {
+          const canServeFromAllCache =
+            this.allCustomersCacheLoaded &&
+            (!requestParams.filter ||
+              Object.keys(requestParams.filter).length === 0) &&
+            !requestParams.customer_id
+
+          if (isMenuRequest && !search && !displayName && !contactName && !phone) {
             requestParams.limit = 'all'
           }
 
-          if (isMenuRequest && this.allCustomersCacheLoaded) {
-            const data = search
-              ? this.allCustomersCache.filter((customer) => {
-                  return [
-                    customer.name,
-                    customer.display_name,
-                    customer.contact_name,
-                    customer.email,
-                  ].some((value) =>
-                    value?.toString().toLowerCase().includes(search)
-                  )
-                })
-              : this.allCustomersCache
+          if (canServeFromAllCache) {
+            const filteredCustomers = this.allCustomersCache.filter((customer) => {
+              const matchesSearch =
+                !search ||
+                [
+                  customer.name,
+                  customer.display_name,
+                  customer.contact_name,
+                  customer.email,
+                  customer.phone,
+                ].some((value) =>
+                  value?.toString().toLowerCase().includes(search)
+                )
+              const matchesDisplayName =
+                !displayName ||
+                [customer.display_name, customer.name].some((value) =>
+                  value?.toString().toLowerCase().includes(displayName)
+                )
+              const matchesContactName =
+                !contactName ||
+                customer.contact_name?.toString().toLowerCase().includes(contactName)
+              const matchesPhone =
+                !phone || customer.phone?.toString().toLowerCase().includes(phone)
 
-            this.customers = data
-            this.totalCustomers = data.length
+              return (
+                matchesSearch &&
+                matchesDisplayName &&
+                matchesContactName &&
+                matchesPhone
+              )
+            })
+
+            const sortedCustomers = sortCachedRecords(
+              filteredCustomers,
+              requestParams.orderByField || 'created_at',
+              requestParams.orderBy || 'desc'
+            )
+            const paginatedCustomers = hasPage
+              ? paginateCachedRecords(
+                  sortedCustomers,
+                  requestParams.page,
+                  requestParams.limit || 10
+                )
+              : {
+                  data: sortedCustomers,
+                  meta: {
+                    current_page: 1,
+                    last_page: 1,
+                    total: sortedCustomers.length,
+                  },
+                }
+
+            this.customers = paginatedCustomers.data
+            this.totalCustomers = sortedCustomers.length
             resolve({
               data: {
-                data,
-                meta: { customer_total_count: data.length },
+                data: paginatedCustomers.data,
+                meta: {
+                  customer_total_count: sortedCustomers.length,
+                  total: paginatedCustomers.meta.total,
+                  current_page: paginatedCustomers.meta.current_page,
+                  last_page: paginatedCustomers.meta.last_page,
+                },
               },
             })
+            return
+          }
+
+          const cacheKey = buildScopedListCacheKey(companyId, requestParams)
+          const cachedResponse = this.listResponseCache[cacheKey]
+
+          if (cachedResponse) {
+            this.customers = cachedResponse.data
+            this.totalCustomers =
+              cachedResponse.meta.customer_total_count ?? cachedResponse.meta.total ?? 0
+            resolve({ data: cachedResponse })
             return
           }
 
@@ -130,8 +224,9 @@ export const useCustomerStore = (useWindow = false) => {
             .then((response) => {
               this.customers = response.data.data
               this.totalCustomers = response.data.meta.customer_total_count
+              this.listResponseCache[cacheKey] = response.data
 
-              if (isMenuRequest && !search) {
+              if (isMenuRequest && !search && !displayName && !contactName && !phone) {
                 this.allCustomersCache = response.data.data
                 this.allCustomersCacheLoaded = true
               }
@@ -189,7 +284,7 @@ export const useCustomerStore = (useWindow = false) => {
             .post('/api/v1/customers', data)
             .then((response) => {
               this.customers.push(response.data.data)
-              this.allCustomersCacheLoaded = false
+              this.invalidateCustomerCaches()
 
               const notificationStore = useNotificationStore()
               notificationStore.showNotification({
@@ -216,7 +311,7 @@ export const useCustomerStore = (useWindow = false) => {
                   (customer) => customer.id === response.data.data.id
                 )
                 this.customers[pos] = data
-                this.allCustomersCacheLoaded = false
+                this.invalidateCustomerCaches()
                 const notificationStore = useNotificationStore()
                 notificationStore.showNotification({
                   type: 'success',
@@ -242,7 +337,7 @@ export const useCustomerStore = (useWindow = false) => {
                 (customer) => customer.id === id
               )
               this.customers.splice(index, 1)
-              this.allCustomersCacheLoaded = false
+              this.invalidateCustomerCaches()
               notificationStore.showNotification({
                 type: 'success',
                 message: global.t('customers.deleted_message', 1),
@@ -269,7 +364,7 @@ export const useCustomerStore = (useWindow = false) => {
                 )
                 this.customers.splice(index, 1)
               })
-              this.allCustomersCacheLoaded = false
+              this.invalidateCustomerCaches()
 
               notificationStore.showNotification({
                 type: 'success',

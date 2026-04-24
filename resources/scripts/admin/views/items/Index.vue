@@ -371,7 +371,10 @@ async function fetchData({ page, filter, sort }) {
   let data = {
     search: filters.name,
     unit_id: filters.unit_id !== null ? filters.unit_id : '',
-    price: Math.round(filters.price * 100),
+    price:
+      filters.price === '' || filters.price === null
+        ? ''
+        : Math.round(Number(filters.price) * 100),
     orderByField: sort.fieldName || 'created_at',
     orderBy: sort.order || 'desc',
     page,

@@ -31,6 +31,7 @@ import { useExchangeRateStore } from '@/scripts/admin/stores/exchange-rate'
 import { useCompanyStore } from '@/scripts/admin/stores/company'
 import { useCustomerStore } from '@/scripts/admin/stores/customer'
 import { useItemStore } from '@/scripts/admin/stores/item'
+import { useInvoiceStore } from '@/scripts/admin/stores/invoice'
 import { usePaymentStore } from '@/scripts/admin/stores/payment'
 import { useTaxTypeStore } from '@/scripts/admin/stores/tax-type'
 
@@ -49,6 +50,7 @@ const exchangeRateStore = useExchangeRateStore()
 const companyStore = useCompanyStore()
 const customerStore = useCustomerStore()
 const itemStore = useItemStore()
+const invoiceStore = useInvoiceStore()
 const paymentStore = usePaymentStore()
 const taxTypeStore = useTaxTypeStore()
 
@@ -97,24 +99,42 @@ onMounted(() => {
 })
 
 function warmMenuData() {
-  window.setTimeout(() => {
+  Promise.allSettled([
+    invoiceStore.fetchInvoices({
+      page: 1,
+      orderByField: 'created_at',
+      orderBy: 'desc',
+      background: true,
+    }),
+    itemStore.fetchItems({
+      page: 1,
+      orderByField: 'created_at',
+      orderBy: 'desc',
+      background: true,
+    }),
     itemStore.fetchItems({
       limit: 'all',
       filter: {},
       orderByField: '',
       orderBy: '',
       background: true,
-    }).catch(() => {})
-    itemStore.fetchItemUnits({ limit: 'all', background: true }).catch(() => {})
-    taxTypeStore.fetchTaxTypes({ limit: 'all', background: true }).catch(() => {})
-    paymentStore.fetchPaymentModes({ limit: 'all', background: true }).catch(() => {})
+    }),
+    itemStore.fetchItemUnits({ limit: 'all', background: true }),
+    taxTypeStore.fetchTaxTypes({ limit: 'all', background: true }),
+    paymentStore.fetchPaymentModes({ limit: 'all', background: true }),
+    customerStore.fetchCustomers({
+      page: 1,
+      orderByField: 'created_at',
+      orderBy: 'desc',
+      background: true,
+    }),
     customerStore.fetchCustomers({
       limit: 'all',
       filter: {},
       orderByField: '',
       orderBy: '',
       background: true,
-    }).catch(() => {})
-  }, 0)
+    }),
+  ]).catch(() => {})
 }
 </script>

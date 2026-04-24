@@ -17,6 +17,7 @@ import { useItemStore } from './item'
 import { useUserStore } from './user'
 import { useNotesStore } from './note'
 import { usePaymentStore } from './payment'
+import { buildScopedListCacheKey } from '@/scripts/helpers/list-cache'
 
 function normalizeYesNoSetting(value) {
   return value === true || value === 1 || value === '1' || value === 'YES'
@@ -77,6 +78,8 @@ export const useInvoiceStore = (useWindow = false) => {
     state: () => ({
       templates: [],
       invoices: [],
+      cachedCompanyId: null,
+      listResponseCache: {},
       selectedInvoices: [],
       selectAllField: false,
       invoiceTotalCount: 0,
@@ -151,6 +154,27 @@ export const useInvoiceStore = (useWindow = false) => {
     },
 
     actions: {
+      ensureCacheScope() {
+        const companyStore = useCompanyStore()
+        const companyId =
+          companyStore.selectedCompany?.id || window.Ls?.get('selectedCompany') || null
+
+        if (this.cachedCompanyId === companyId) {
+          return companyId
+        }
+
+        this.cachedCompanyId = companyId
+        this.invoices = []
+        this.invoiceTotalCount = 0
+        this.listResponseCache = {}
+
+        return companyId
+      },
+
+      invalidateInvoiceCaches() {
+        this.listResponseCache = {}
+      },
+
       resetCurrentInvoice() {
         this.newInvoice = {
           ...invoiceStub(),
@@ -173,11 +197,26 @@ export const useInvoiceStore = (useWindow = false) => {
 
       fetchInvoices(params) {
         return new Promise((resolve, reject) => {
+          const companyId = this.ensureCacheScope()
+          const requestParams = { ...(params || {}) }
+          delete requestParams.background
+          const cacheKey = buildScopedListCacheKey(companyId, requestParams)
+          const cachedResponse = this.listResponseCache[cacheKey]
+
+          if (cachedResponse) {
+            this.invoices = cachedResponse.data
+            this.invoiceTotalCount =
+              cachedResponse.meta.invoice_total_count ?? cachedResponse.meta.total ?? 0
+            resolve({ data: cachedResponse })
+            return
+          }
+
           axios
-            .get(`/api/v1/invoices`, { params })
+            .get(`/api/v1/invoices`, { params: requestParams })
             .then((response) => {
               this.invoices = response.data.data
               this.invoiceTotalCount = response.data.meta.invoice_total_count
+              this.listResponseCache[cacheKey] = response.data
               resolve(response)
             })
             .catch((err) => {
@@ -345,6 +384,7 @@ export const useInvoiceStore = (useWindow = false) => {
             .post('/api/v1/invoices', data)
             .then((response) => {
               this.invoices = [...this.invoices, response.data.invoice]
+              this.invalidateInvoiceCaches()
 
               notificationStore.showNotification({
                 type: 'success',
@@ -372,6 +412,7 @@ export const useInvoiceStore = (useWindow = false) => {
               },
             })
             .then((response) => {
+              this.invalidateInvoiceCaches()
               resolve(response)
             })
             .catch((err) => {
@@ -390,6 +431,7 @@ export const useInvoiceStore = (useWindow = false) => {
                 (invoice) => invoice.id === id,
               )
               this.invoices.splice(index, 1)
+              this.invalidateInvoiceCaches()
 
               notificationStore.showNotification({
                 type: 'success',
@@ -416,6 +458,7 @@ export const useInvoiceStore = (useWindow = false) => {
                 this.invoices.splice(index, 1)
               })
               this.selectedInvoices = []
+              this.invalidateInvoiceCaches()
 
               notificationStore.showNotification({
                 type: 'success',
@@ -439,6 +482,7 @@ export const useInvoiceStore = (useWindow = false) => {
                 (invoice) => invoice.id === response.data.data.id,
               )
               this.invoices[pos] = response.data.data
+              this.invalidateInvoiceCaches()
 
               notificationStore.showNotification({
                 type: 'success',
@@ -459,6 +503,7 @@ export const useInvoiceStore = (useWindow = false) => {
           axios
             .post(`/api/v1/invoices/${data.id}/clone`, data)
             .then((response) => {
+              this.invalidateInvoiceCaches()
               notificationStore.showNotification({
                 type: 'success',
                 message: global.t('invoices.cloned_successfully'),
@@ -484,6 +529,7 @@ export const useInvoiceStore = (useWindow = false) => {
               if (this.invoices[pos]) {
                 this.invoices[pos].status = 'SENT'
               }
+              this.invalidateInvoiceCaches()
 
               notificationStore.showNotification({
                 type: 'success',

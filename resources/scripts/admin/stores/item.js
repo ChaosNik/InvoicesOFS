@@ -2,6 +2,12 @@ import axios from 'axios'
 import { defineStore } from 'pinia'
 import { useNotificationStore } from '@/scripts/stores/notification'
 import { handleError } from '@/scripts/helpers/error-handling'
+import { useCompanyStore } from './company'
+import {
+  buildScopedListCacheKey,
+  paginateCachedRecords,
+  sortCachedRecords,
+} from '@/scripts/helpers/list-cache'
 
 export const useItemStore = (useWindow = false) => {
   const defineStoreFunc = useWindow ? window.pinia.defineStore : defineStore
@@ -13,6 +19,8 @@ export const useItemStore = (useWindow = false) => {
       items: [],
       allItemsCache: [],
       allItemsCacheLoaded: false,
+      cachedCompanyId: null,
+      listResponseCache: {},
       totalItems: 0,
       selectAllField: false,
       selectedItems: [],
@@ -48,8 +56,37 @@ export const useItemStore = (useWindow = false) => {
           taxes: [],
         }
       },
+
+      ensureCacheScope() {
+        const companyStore = useCompanyStore()
+        const companyId =
+          companyStore.selectedCompany?.id || window.Ls?.get('selectedCompany') || null
+
+        if (this.cachedCompanyId === companyId) {
+          return companyId
+        }
+
+        this.cachedCompanyId = companyId
+        this.items = []
+        this.totalItems = 0
+        this.allItemsCache = []
+        this.allItemsCacheLoaded = false
+        this.listResponseCache = {}
+        this.itemUnits = []
+        this.itemUnitsLoaded = false
+
+        return companyId
+      },
+
+      invalidateItemCaches() {
+        this.allItemsCache = []
+        this.allItemsCacheLoaded = false
+        this.listResponseCache = {}
+      },
+
       fetchItems(params) {
         return new Promise((resolve, reject) => {
+          const companyId = this.ensureCacheScope()
           const requestParams = { ...(params || {}) }
           delete requestParams.background
 
@@ -65,23 +102,86 @@ export const useItemStore = (useWindow = false) => {
               Object.keys(requestParams.filter).length === 0) &&
             !requestParams.orderByField &&
             !requestParams.orderBy
+          const canServeFromAllCache =
+            this.allItemsCacheLoaded &&
+            (!requestParams.filter ||
+              Object.keys(requestParams.filter).length === 0)
 
           if (isMenuRequest && !requestParams.search) {
             requestParams.limit = 'all'
           }
 
-          if ((isSearchRequest || isMenuRequest) && this.allItemsCacheLoaded) {
+          if (
+            canServeFromAllCache &&
+            (isSearchRequest || isMenuRequest || requestParams.page)
+          ) {
             const search = (requestParams.search || '').toString().toLowerCase()
-            const data = search
-              ? this.allItemsCache.filter((item) => {
-                  return (
-                    item.name?.toLowerCase().includes(search) ||
-                    item.ofs_gtin?.toLowerCase().includes(search)
-                  )
-                })
-              : this.allItemsCache
+            const unitId =
+              requestParams.unit_id === '' || requestParams.unit_id === null
+                ? null
+                : String(requestParams.unit_id)
+            const hasPriceFilter =
+              requestParams.price !== '' &&
+              requestParams.price !== null &&
+              requestParams.price !== undefined &&
+              !Number.isNaN(Number(requestParams.price))
+            const price = hasPriceFilter ? Number(requestParams.price) : null
+            const filteredItems = this.allItemsCache.filter((item) => {
+              const matchesSearch =
+                !search ||
+                item.name?.toLowerCase().includes(search) ||
+                item.ofs_gtin?.toLowerCase().includes(search)
+              const matchesUnit =
+                !unitId || String(item.unit_id ?? '') === unitId
+              const matchesPrice =
+                price === null || Number(item.price ?? 0) === price
 
-            resolve({ data: { data, meta: { item_total_count: data.length } } })
+              return matchesSearch && matchesUnit && matchesPrice
+            })
+            const sortedItems = sortCachedRecords(
+              filteredItems,
+              requestParams.orderByField || 'created_at',
+              requestParams.orderBy || 'desc'
+            )
+            const paginatedItems = requestParams.page
+              ? paginateCachedRecords(
+                  sortedItems,
+                  requestParams.page,
+                  requestParams.limit || 10
+                )
+              : {
+                  data: sortedItems,
+                  meta: {
+                    current_page: 1,
+                    last_page: 1,
+                    total: sortedItems.length,
+                  },
+                }
+
+            this.items = paginatedItems.data
+            this.totalItems = sortedItems.length
+            resolve({
+              data: {
+                data: paginatedItems.data,
+                meta: {
+                  item_total_count: sortedItems.length,
+                  total: paginatedItems.meta.total,
+                  current_page: paginatedItems.meta.current_page,
+                  last_page: paginatedItems.meta.last_page,
+                },
+              },
+            })
+            return
+          }
+
+          const cacheKey = buildScopedListCacheKey(companyId, requestParams)
+          const cachedResponse = this.listResponseCache[cacheKey]
+
+          if (cachedResponse) {
+            this.items = cachedResponse.data
+            this.totalItems =
+              cachedResponse.meta.item_total_count ?? cachedResponse.meta.total ?? 0
+            resolve({ data: cachedResponse })
             return
           }
 
@@ -90,6 +190,7 @@ export const useItemStore = (useWindow = false) => {
             .then((response) => {
               this.items = response.data.data
               this.totalItems = response.data.meta.item_total_count
+              this.listResponseCache[cacheKey] = response.data
 
               if (isMenuRequest && !requestParams.search) {
                 this.allItemsCache = response.data.data
@@ -130,7 +231,7 @@ export const useItemStore = (useWindow = false) => {
               const notificationStore = useNotificationStore()
 
               this.items.push(response.data.data)
-              this.allItemsCacheLoaded = false
+              this.invalidateItemCaches()
 
               notificationStore.showNotification({
                 type: 'success',
@@ -155,6 +256,7 @@ export const useItemStore = (useWindow = false) => {
               },
             })
             .then((response) => {
+              this.invalidateItemCaches()
               resolve(response)
             })
             .catch((err) => {
@@ -177,7 +279,7 @@ export const useItemStore = (useWindow = false) => {
                 )
 
                 this.items[pos] = data.item
-                this.allItemsCacheLoaded = false
+                this.invalidateItemCaches()
 
                 notificationStore.showNotification({
                   type: 'success',
@@ -203,7 +305,7 @@ export const useItemStore = (useWindow = false) => {
             .then((response) => {
               let index = this.items.findIndex((item) => item.id === id)
               this.items.splice(index, 1)
-              this.allItemsCacheLoaded = false
+              this.invalidateItemCaches()
 
               notificationStore.showNotification({
                 type: 'success',
@@ -232,7 +334,7 @@ export const useItemStore = (useWindow = false) => {
                 )
                 this.items.splice(index, 1)
               })
-              this.allItemsCacheLoaded = false
+              this.invalidateItemCaches()
 
               notificationStore.showNotification({
                 type: 'success',
@@ -275,7 +377,9 @@ export const useItemStore = (useWindow = false) => {
           axios
             .post(`/api/v1/units`, data)
             .then((response) => {
+              this.ensureCacheScope()
               this.itemUnits.push(response.data.data)
+              this.itemUnitsLoaded = false
 
               if (response.data.data) {
                 notificationStore.showNotification({
@@ -309,11 +413,13 @@ export const useItemStore = (useWindow = false) => {
           axios
             .put(`/api/v1/units/${data.id}`, data)
             .then((response) => {
+              this.ensureCacheScope()
               let pos = this.itemUnits.findIndex(
                 (unit) => unit.id === response.data.data.id
               )
 
               this.itemUnits[pos] = data
+              this.itemUnitsLoaded = false
 
               if (response.data.data) {
                 notificationStore.showNotification({
@@ -341,6 +447,7 @@ export const useItemStore = (useWindow = false) => {
 
       fetchItemUnits(params) {
         return new Promise((resolve, reject) => {
+          this.ensureCacheScope()
           const requestParams = { ...(params || {}) }
           delete requestParams.background
 
@@ -397,6 +504,7 @@ export const useItemStore = (useWindow = false) => {
               if (!response.data.error) {
                 let index = this.itemUnits.findIndex((unit) => unit.id === id)
                 this.itemUnits.splice(index, 1)
+                this.itemUnitsLoaded = false
               }
 
               if (response.data.success) {

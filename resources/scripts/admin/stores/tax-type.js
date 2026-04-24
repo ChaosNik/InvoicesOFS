@@ -2,6 +2,7 @@ import axios from 'axios'
 import { defineStore } from 'pinia'
 import { useNotificationStore } from '@/scripts/stores/notification'
 import { handleError } from '@/scripts/helpers/error-handling'
+import { useCompanyStore } from './company'
 
 export const useTaxTypeStore = (useWindow = false) => {
   const defineStoreFunc = useWindow ? window.pinia.defineStore : defineStore
@@ -13,6 +14,7 @@ export const useTaxTypeStore = (useWindow = false) => {
     state: () => ({
       taxTypes: [],
       taxTypesLoaded: false,
+      cachedCompanyId: null,
       currentTaxType: {
         id: null,
         name: '',
@@ -31,6 +33,22 @@ export const useTaxTypeStore = (useWindow = false) => {
     },
 
     actions: {
+      ensureCacheScope() {
+        const companyStore = useCompanyStore()
+        const companyId =
+          companyStore.selectedCompany?.id || window.Ls?.get('selectedCompany') || null
+
+        if (this.cachedCompanyId === companyId) {
+          return companyId
+        }
+
+        this.cachedCompanyId = companyId
+        this.taxTypes = []
+        this.taxTypesLoaded = false
+
+        return companyId
+      },
+
       resetCurrentTaxType() {
         this.currentTaxType = {
           id: null,
@@ -47,6 +65,7 @@ export const useTaxTypeStore = (useWindow = false) => {
 
       fetchTaxTypes(params) {
         return new Promise((resolve, reject) => {
+          this.ensureCacheScope()
           const requestParams = { ...(params || {}) }
           delete requestParams.background
 
