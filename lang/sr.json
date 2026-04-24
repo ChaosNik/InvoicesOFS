@@ -133,6 +133,7 @@
     "invoiceshelf_logo": "Logo InvoiceShelfa"
   },
   "dashboard": {
+    "select_period": "Odaberi period",
     "select_year": "Odaberi godinu",
     "cards": {
       "due_amount": "Iznos duga",
@@ -219,7 +220,7 @@
     "display_name": "Naziv koji se prikazuje",
     "primary_contact_name": "Primarna kontakt osoba",
     "contact_name": "Naziv kontakt osobe",
-    "amount_due": "Iznos dospijeća",
+    "amount_due": "Iznos duga",
     "email": "E-mail",
     "address": "Adresa",
     "phone": "Telefon",

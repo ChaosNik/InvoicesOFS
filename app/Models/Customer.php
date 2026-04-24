@@ -293,6 +293,53 @@ class Customer extends Authenticatable implements HasMedia
         $query->orWhere('customers.id', $customer_id);
     }
 
+    public function scopeWithFinancialTotals($query)
+    {
+        return $query
+            ->addSelect([
+                'sales_total' => Invoice::query()
+                    ->selectRaw('COALESCE(SUM(invoices.total), 0)')
+                    ->whereColumn('invoices.customer_id', 'customers.id')
+                    ->whereColumn('invoices.company_id', 'customers.company_id'),
+                'base_sales_total' => Invoice::query()
+                    ->selectRaw('COALESCE(SUM(invoices.base_total), 0)')
+                    ->whereColumn('invoices.customer_id', 'customers.id')
+                    ->whereColumn('invoices.company_id', 'customers.company_id'),
+                'receipts_total' => Payment::query()
+                    ->selectRaw('COALESCE(SUM(payments.amount), 0)')
+                    ->whereColumn('payments.customer_id', 'customers.id')
+                    ->whereColumn('payments.company_id', 'customers.company_id'),
+                'base_receipts_total' => Payment::query()
+                    ->selectRaw('COALESCE(SUM(payments.base_amount), 0)')
+                    ->whereColumn('payments.customer_id', 'customers.id')
+                    ->whereColumn('payments.company_id', 'customers.company_id'),
+            ]);
+    }
+
+    public function getComputedDueAmountAttribute(): int
+    {
+        $salesTotal = array_key_exists('sales_total', $this->attributes)
+            ? (int) $this->attributes['sales_total']
+            : (int) $this->invoices()->sum('total');
+        $receiptsTotal = array_key_exists('receipts_total', $this->attributes)
+            ? (int) $this->attributes['receipts_total']
+            : (int) $this->payments()->sum('amount');
+
+        return $salesTotal - $receiptsTotal;
+    }
+
+    public function getComputedBaseDueAmountAttribute(): int
+    {
+        $salesTotal = array_key_exists('base_sales_total', $this->attributes)
+            ? (int) $this->attributes['base_sales_total']
+            : (int) $this->invoices()->sum('base_total');
+        $receiptsTotal = array_key_exists('base_receipts_total', $this->attributes)
+            ? (int) $this->attributes['base_receipts_total']
+            : (int) $this->payments()->sum('base_amount');
+
+        return $salesTotal - $receiptsTotal;
+    }
+
     public function scopeApplyInvoiceFilters($query, array $filters)
     {
         $filters = collect($filters);

@@ -23,120 +23,202 @@ class CustomerStatsController extends Controller
     {
         $this->authorize('view', $customer);
 
-        $i = 0;
-        $months = [];
-        $invoiceTotals = [];
-        $expenseTotals = [];
-        $receiptTotals = [];
-        $netProfits = [];
-        $monthCounter = 0;
-        $fiscalYear = CompanySetting::getSetting('fiscal_year', $request->header('company'));
-        $startDate = Carbon::now();
-        $start = Carbon::now();
-        $end = Carbon::now();
-        $terms = explode('-', $fiscalYear);
-        $companyStartMonth = intval($terms[0]);
+        $range = $this->resolveChartRange($request);
+        $chartData = $range['type'] === 'custom'
+            ? $this->buildCustomRangeChartData($customer, $range['start'], $range['end'])
+            : $this->buildFiscalYearChartData($customer, $range['start']);
 
-        if ($companyStartMonth <= $start->month) {
-            $startDate->month($companyStartMonth)->startOfMonth();
-            $start->month($companyStartMonth)->startOfMonth();
-            $end->month($companyStartMonth)->endOfMonth();
-        } else {
-            $startDate->subYear()->month($companyStartMonth)->startOfMonth();
-            $start->subYear()->month($companyStartMonth)->startOfMonth();
-            $end->subYear()->month($companyStartMonth)->endOfMonth();
-        }
-
-        if ($request->has('previous_year')) {
-            $startDate->subYear()->startOfMonth();
-            $start->subYear()->startOfMonth();
-            $end->subYear()->endOfMonth();
-        }
-        while ($monthCounter < 12) {
-            array_push(
-                $invoiceTotals,
-                Invoice::whereBetween(
-                    'invoice_date',
-                    [$start->format('Y-m-d'), $end->format('Y-m-d')]
-                )
-                    ->whereCompany()
-                    ->whereCustomer($customer->id)
-                    ->sum('base_total') ?? 0
-            );
-            array_push(
-                $expenseTotals,
-                Expense::whereBetween(
-                    'expense_date',
-                    [$start->format('Y-m-d'), $end->format('Y-m-d')]
-                )
-                    ->whereCompany()
-                    ->whereUser($customer->id)
-                    ->sum('base_amount') ?? 0
-            );
-            array_push(
-                $receiptTotals,
-                Payment::whereBetween(
-                    'payment_date',
-                    [$start->format('Y-m-d'), $end->format('Y-m-d')]
-                )
-                    ->whereCompany()
-                    ->whereCustomer($customer->id)
-                    ->sum('base_amount') ?? 0
-            );
-            array_push(
-                $netProfits,
-                ($receiptTotals[$i] - $expenseTotals[$i])
-            );
-            $i++;
-            array_push($months, $start->translatedFormat('M'));
-            $monthCounter++;
-            $end->startOfMonth();
-            $start->addMonth()->startOfMonth();
-            $end->addMonth()->endOfMonth();
-        }
-
-        $start->subMonth()->endOfMonth();
-
-        $salesTotal = Invoice::whereBetween(
-            'invoice_date',
-            [$startDate->format('Y-m-d'), $start->format('Y-m-d')]
-        )
-            ->whereCompany()
-            ->whereCustomer($customer->id)
-            ->sum('base_total');
-        $totalReceipts = Payment::whereBetween(
-            'payment_date',
-            [$startDate->format('Y-m-d'), $start->format('Y-m-d')]
-        )
-            ->whereCompany()
-            ->whereCustomer($customer->id)
-            ->sum('base_amount');
-        $totalExpenses = Expense::whereBetween(
-            'expense_date',
-            [$startDate->format('Y-m-d'), $start->format('Y-m-d')]
-        )
-            ->whereCompany()
-            ->whereUser($customer->id)
-            ->sum('base_amount');
+        $salesTotal = $this->sumInvoiceTotals($customer, $range['start'], $range['end']);
+        $totalReceipts = $this->sumReceiptTotals($customer, $range['start'], $range['end']);
+        $totalExpenses = $this->sumExpenseTotals($customer, $range['start'], $range['end']);
         $netProfit = (int) $totalReceipts - (int) $totalExpenses;
 
-        $chartData = [
-            'months' => $months,
-            'invoiceTotals' => $invoiceTotals,
-            'expenseTotals' => $expenseTotals,
-            'receiptTotals' => $receiptTotals,
-            'netProfit' => $netProfit,
-            'netProfits' => $netProfits,
-            'salesTotal' => $salesTotal,
-            'totalReceipts' => $totalReceipts,
-            'totalExpenses' => $totalExpenses,
-        ];
+        $chartData['netProfit'] = $netProfit;
+        $chartData['salesTotal'] = $salesTotal;
+        $chartData['totalReceipts'] = $totalReceipts;
+        $chartData['totalExpenses'] = $totalExpenses;
+        $chartData['rangeType'] = $range['type'];
 
-        $customer = Customer::find($customer->id);
+        $customer = Customer::query()
+            ->whereKey($customer->id)
+            ->withFinancialTotals()
+            ->firstOrFail();
 
         return (new CustomerResource($customer))
             ->additional(['meta' => [
                 'chartData' => $chartData,
             ]]);
+    }
+
+    private function resolveChartRange(Request $request): array
+    {
+        $validated = $request->validate([
+            'range_type' => 'nullable|in:this_year,previous_year,custom',
+            'from_date' => 'nullable|date|required_if:range_type,custom',
+            'to_date' => 'nullable|date|required_if:range_type,custom',
+        ]);
+
+        $rangeType = $validated['range_type'] ?? ($request->has('previous_year') ? 'previous_year' : 'this_year');
+
+        if ($rangeType === 'custom') {
+            $startDate = Carbon::createFromFormat('Y-m-d', $validated['from_date'])->startOfDay();
+            $endDate = Carbon::createFromFormat('Y-m-d', $validated['to_date'])->endOfDay();
+
+            if ($startDate->gt($endDate)) {
+                [$startDate, $endDate] = [$endDate, $startDate];
+            }
+
+            return [
+                'type' => 'custom',
+                'start' => $startDate,
+                'end' => $endDate,
+            ];
+        }
+
+        $fiscalYear = CompanySetting::getSetting('fiscal_year', $request->header('company'));
+        $startDate = $this->resolveFiscalYearStartDate($fiscalYear);
+
+        if ($rangeType === 'previous_year') {
+            $startDate->subYear()->startOfMonth();
+        }
+
+        return [
+            'type' => $rangeType,
+            'start' => $startDate,
+            'end' => $startDate->copy()->addMonths(11)->endOfMonth(),
+        ];
+    }
+
+    private function resolveFiscalYearStartDate(?string $fiscalYear): Carbon
+    {
+        $startDate = Carbon::now();
+        $terms = explode('-', (string) $fiscalYear);
+        $companyStartMonth = intval($terms[0] ?? 1);
+
+        if ($companyStartMonth < 1 || $companyStartMonth > 12) {
+            $companyStartMonth = 1;
+        }
+
+        if ($companyStartMonth <= $startDate->month) {
+            $startDate->month($companyStartMonth)->startOfMonth();
+        } else {
+            $startDate->subYear()->month($companyStartMonth)->startOfMonth();
+        }
+
+        return $startDate;
+    }
+
+    private function buildFiscalYearChartData(Customer $customer, Carbon $startDate): array
+    {
+        $invoiceTotals = [];
+        $expenseTotals = [];
+        $receiptTotals = [];
+        $netProfits = [];
+        $months = [];
+        $start = $startDate->copy()->startOfMonth();
+        $end = $startDate->copy()->endOfMonth();
+
+        for ($monthCounter = 0; $monthCounter < 12; $monthCounter++) {
+            $invoiceTotals[] = $this->sumInvoiceTotals($customer, $start, $end);
+            $expenseTotals[] = $this->sumExpenseTotals($customer, $start, $end);
+            $receiptTotals[] = $this->sumReceiptTotals($customer, $start, $end);
+            $netProfits[] = $receiptTotals[$monthCounter] - $expenseTotals[$monthCounter];
+            $months[] = $start->translatedFormat('M');
+
+            $start->addMonth()->startOfMonth();
+            $end->addMonth()->endOfMonth();
+        }
+
+        return [
+            'months' => $months,
+            'invoiceTotals' => $invoiceTotals,
+            'expenseTotals' => $expenseTotals,
+            'receiptTotals' => $receiptTotals,
+            'netProfits' => $netProfits,
+        ];
+    }
+
+    private function buildCustomRangeChartData(Customer $customer, Carbon $startDate, Carbon $endDate): array
+    {
+        $invoiceTotals = [];
+        $expenseTotals = [];
+        $receiptTotals = [];
+        $netProfits = [];
+        $months = [];
+        $useDailyBuckets = $startDate->copy()->startOfDay()->diffInDays($endDate->copy()->startOfDay()) <= 31;
+        $cursor = $useDailyBuckets
+            ? $startDate->copy()->startOfDay()
+            : $startDate->copy()->startOfMonth();
+
+        while ($cursor->lte($endDate)) {
+            if ($useDailyBuckets) {
+                $bucketStart = $cursor->copy()->startOfDay();
+                $bucketEnd = $cursor->copy()->endOfDay();
+                $label = $bucketStart->translatedFormat('d.m.');
+                $cursor->addDay()->startOfDay();
+            } else {
+                $bucketStart = $cursor->copy()->startOfMonth();
+                $bucketEnd = $cursor->copy()->endOfMonth();
+
+                if ($bucketStart->lt($startDate)) {
+                    $bucketStart = $startDate->copy()->startOfDay();
+                }
+
+                if ($bucketEnd->gt($endDate)) {
+                    $bucketEnd = $endDate->copy()->endOfDay();
+                }
+
+                $label = $cursor->translatedFormat('M y');
+                $cursor->addMonth()->startOfMonth();
+            }
+
+            $invoiceTotals[] = $this->sumInvoiceTotals($customer, $bucketStart, $bucketEnd);
+            $expenseTotals[] = $this->sumExpenseTotals($customer, $bucketStart, $bucketEnd);
+            $receiptTotals[] = $this->sumReceiptTotals($customer, $bucketStart, $bucketEnd);
+            $lastIndex = count($receiptTotals) - 1;
+            $netProfits[] = $receiptTotals[$lastIndex] - $expenseTotals[$lastIndex];
+            $months[] = $label;
+        }
+
+        return [
+            'months' => $months,
+            'invoiceTotals' => $invoiceTotals,
+            'expenseTotals' => $expenseTotals,
+            'receiptTotals' => $receiptTotals,
+            'netProfits' => $netProfits,
+        ];
+    }
+
+    private function sumInvoiceTotals(Customer $customer, Carbon $startDate, Carbon $endDate): int
+    {
+        return (int) Invoice::whereBetween(
+            'invoice_date',
+            [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')]
+        )
+            ->whereCompany()
+            ->whereCustomer($customer->id)
+            ->sum('base_total');
+    }
+
+    private function sumExpenseTotals(Customer $customer, Carbon $startDate, Carbon $endDate): int
+    {
+        return (int) Expense::whereBetween(
+            'expense_date',
+            [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')]
+        )
+            ->whereCompany()
+            ->whereUser($customer->id)
+            ->sum('base_amount');
+    }
+
+    private function sumReceiptTotals(Customer $customer, Carbon $startDate, Carbon $endDate): int
+    {
+        return (int) Payment::whereBetween(
+            'payment_date',
+            [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')]
+        )
+            ->whereCompany()
+            ->whereCustomer($customer->id)
+            ->sum('base_amount');
     }
 }

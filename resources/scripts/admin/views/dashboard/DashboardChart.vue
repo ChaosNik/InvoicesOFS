@@ -44,15 +44,41 @@
             </div>
           </div>
 
-          <div class="w-full my-2 md:m-0 md:w-40 h-10">
-            <BaseMultiselect
-              v-model="selectedYear"
-              :options="years"
-              :allow-empty="false"
-              :show-labels="false"
-              :placeholder="$t('dashboard.select_year')"
-              :can-deselect="false"
-            />
+          <div class="w-full my-2 md:m-0 flex flex-col gap-3 md:flex-row md:items-end md:w-auto">
+            <div class="w-full md:w-44 h-10">
+              <BaseMultiselect
+                v-model="selectedPeriod"
+                :options="periodOptions"
+                :allow-empty="false"
+                :show-labels="false"
+                :placeholder="$t('dashboard.select_period')"
+                :can-deselect="false"
+                label="label"
+                track-by="label"
+                value-prop="value"
+              />
+            </div>
+
+            <div
+              v-if="selectedPeriod === 'custom'"
+              class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:flex md:gap-3"
+            >
+              <BaseInputGroup :label="$t('general.from_date')" class="w-full md:w-40">
+                <BaseInput
+                  v-model="customRange.from"
+                  type="date"
+                  :max="customRange.to || undefined"
+                />
+              </BaseInputGroup>
+
+              <BaseInputGroup :label="$t('general.to_date')" class="w-full md:w-40">
+                <BaseInput
+                  v-model="customRange.to"
+                  type="date"
+                  :min="customRange.from || undefined"
+                />
+              </BaseInputGroup>
+            </div>
           </div>
         </div>
 
@@ -171,7 +197,7 @@
 </template>
 
 <script setup>
-import { ref, watch, inject } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useDashboardStore } from '@/scripts/admin/stores/dashboard'
 import { useCompanyStore } from '@/scripts/admin/stores/company'
 import LineChart from '@/scripts/admin/components/charts/LineChart.vue'
@@ -184,24 +210,25 @@ const dashboardStore = useDashboardStore()
 const companyStore = useCompanyStore()
 
 const { t } = useI18n()
-const utils = inject('utils')
 const userStore = useUserStore()
-const years = ref( [{label: t('dateRange.this_year'), value: 'This year'}, {label: t( 'dateRange.previous_year'), value:
-  'Previous year'}])
-const selectedYear = ref('This year')
+const periodOptions = computed(() => [
+  { label: t('dateRange.this_year'), value: 'this_year' },
+  { label: t('dateRange.previous_year'), value: 'previous_year' },
+  { label: t('dateRange.custom'), value: 'custom' },
+])
+const selectedPeriod = ref('this_year')
 const selectedInvoiceScope = ref(
   userStore.currentUserAccess.default_dashboard_invoice_scope || 'all'
 )
+const customRange = reactive(getDefaultCustomRange())
 
 watch(
-  [selectedYear, selectedInvoiceScope],
-  ([year]) => {
-    const params = {
-      invoice_scope: selectedInvoiceScope.value,
-    }
+  [selectedPeriod, selectedInvoiceScope, () => customRange.from, () => customRange.to],
+  () => {
+    const params = buildDashboardParams()
 
-    if (year === 'Previous year') {
-      params.previous_year = true
+    if (!params) {
+      return
     }
 
     loadData(params)
@@ -214,5 +241,49 @@ async function loadData(params) {
     const response = await dashboardStore.loadData(params)
     selectedInvoiceScope.value = response?.data?.active_invoice_scope || selectedInvoiceScope.value
   }
+}
+
+function buildDashboardParams() {
+  const params = {
+    invoice_scope: selectedInvoiceScope.value,
+    range_type: selectedPeriod.value,
+  }
+
+  if (selectedPeriod.value === 'previous_year') {
+    params.previous_year = true
+  }
+
+  if (selectedPeriod.value === 'custom') {
+    if (!customRange.from || !customRange.to) {
+      return null
+    }
+
+    const [fromDate, toDate] =
+      customRange.from <= customRange.to
+        ? [customRange.from, customRange.to]
+        : [customRange.to, customRange.from]
+
+    params.from_date = fromDate
+    params.to_date = toDate
+  }
+
+  return params
+}
+
+function getDefaultCustomRange() {
+  const today = new Date()
+
+  return {
+    from: formatDateInput(new Date(today.getFullYear(), today.getMonth(), 1)),
+    to: formatDateInput(today),
+  }
+}
+
+function formatDateInput(date) {
+  const year = date.getFullYear()
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+
+  return `${year}-${month}-${day}`
 }
 </script>

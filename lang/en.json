@@ -133,6 +133,7 @@
     "invoiceshelf_logo": "InvoiceShelf logo"
   },
   "dashboard": {
+    "select_period": "Select period",
     "select_year": "Select year",
     "cards": {
       "due_amount": "Amount Due",

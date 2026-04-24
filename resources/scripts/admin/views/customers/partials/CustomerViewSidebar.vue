@@ -75,7 +75,7 @@
                   :label="$t('customers.create_date')"
                   size="sm"
                   name="filter"
-                  value="invoices.created_at"
+                  value="created_at"
                   @update:modelValue="onSearch"
                 />
               </BaseInputGroup>

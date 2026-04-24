@@ -29,114 +29,17 @@ class DashboardController extends Controller
         $this->authorize('view dashboard', $company);
 
         $invoiceScope = $this->resolveInvoiceScope($request, $user, $company->id);
+        $range = $this->resolveChartRange($request);
 
-        $invoice_totals = [];
-        $expense_totals = [];
-        $receipt_totals = [];
-        $net_income_totals = [];
+        $chartData = $range['type'] === 'custom'
+            ? $this->buildCustomRangeChartData($range['start'], $range['end'], $invoiceScope)
+            : $this->buildFiscalYearChartData($range['start'], $invoiceScope);
 
-        $i = 0;
-        $months = [];
-        $monthCounter = 0;
-        $fiscalYear = CompanySetting::getSetting('fiscal_year', $request->header('company'));
-        $startDate = Carbon::now();
-        $start = Carbon::now();
-        $end = Carbon::now();
-        $terms = explode('-', $fiscalYear);
-        $companyStartMonth = intval($terms[0]);
-
-        if ($companyStartMonth <= $start->month) {
-            $startDate->month($companyStartMonth)->startOfMonth();
-            $start->month($companyStartMonth)->startOfMonth();
-            $end->month($companyStartMonth)->endOfMonth();
-        } else {
-            $startDate->subYear()->month($companyStartMonth)->startOfMonth();
-            $start->subYear()->month($companyStartMonth)->startOfMonth();
-            $end->subYear()->month($companyStartMonth)->endOfMonth();
-        }
-
-        if ($request->has('previous_year')) {
-            $startDate->subYear()->startOfMonth();
-            $start->subYear()->startOfMonth();
-            $end->subYear()->endOfMonth();
-        }
-
-        while ($monthCounter < 12) {
-            array_push(
-                $invoice_totals,
-                Invoice::whereBetween(
-                    'invoice_date',
-                    [$start->format('Y-m-d'), $end->format('Y-m-d')]
-                )
-                    ->whereCompany()
-                    ->applyInvoiceAccessScope($invoiceScope)
-                    ->sum('base_total')
-            );
-            array_push(
-                $expense_totals,
-                Expense::whereBetween(
-                    'expense_date',
-                    [$start->format('Y-m-d'), $end->format('Y-m-d')]
-                )
-                    ->whereCompany()
-                    ->sum('base_amount')
-            );
-            array_push(
-                $receipt_totals,
-                Payment::whereBetween(
-                    'payment_date',
-                    [$start->format('Y-m-d'), $end->format('Y-m-d')]
-                )
-                    ->whereCompany()
-                    ->applyInvoiceAccessScope($invoiceScope)
-                    ->sum('base_amount')
-            );
-            array_push(
-                $net_income_totals,
-                ($receipt_totals[$i] - $expense_totals[$i])
-            );
-            $i++;
-            array_push($months, $start->translatedFormat('M'));
-            $monthCounter++;
-            $end->startOfMonth();
-            $start->addMonth()->startOfMonth();
-            $end->addMonth()->endOfMonth();
-        }
-
-        $start->subMonth()->endOfMonth();
-
-        $total_sales = Invoice::whereBetween(
-            'invoice_date',
-            [$startDate->format('Y-m-d'), $start->format('Y-m-d')]
-        )
-            ->whereCompany()
-            ->applyInvoiceAccessScope($invoiceScope)
-            ->sum('base_total');
-
-        $total_receipts = Payment::whereBetween(
-            'payment_date',
-            [$startDate->format('Y-m-d'), $start->format('Y-m-d')]
-        )
-            ->whereCompany()
-            ->applyInvoiceAccessScope($invoiceScope)
-            ->sum('base_amount');
-
-        $total_expenses = Expense::whereBetween(
-            'expense_date',
-            [$startDate->format('Y-m-d'), $start->format('Y-m-d')]
-        )
-            ->whereCompany()
-            ->sum('base_amount');
+        $total_sales = $this->sumInvoiceTotals($range['start'], $range['end'], $invoiceScope);
+        $total_receipts = $this->sumReceiptTotals($range['start'], $range['end'], $invoiceScope);
+        $total_expenses = $this->sumExpenseTotals($range['start'], $range['end']);
 
         $total_net_income = (int) $total_receipts - (int) $total_expenses;
-
-        $chart_data = [
-            'months' => $months,
-            'invoice_totals' => $invoice_totals,
-            'expense_totals' => $expense_totals,
-            'receipt_totals' => $receipt_totals,
-            'net_income_totals' => $net_income_totals,
-        ];
 
         $total_customer_count = Customer::whereCompany()->count();
         $total_invoice_count = Invoice::whereCompany()
@@ -165,13 +68,14 @@ class DashboardController extends Controller
             'recent_due_invoices' => BouncerFacade::can('view-invoice', Invoice::class) ? $recent_due_invoices : [],
             'recent_estimates' => BouncerFacade::can('view-estimate', Estimate::class) ? $recent_estimates : [],
 
-            'chart_data' => $chart_data,
+            'chart_data' => $chartData,
 
             'total_sales' => $total_sales,
             'total_receipts' => $total_receipts,
             'total_expenses' => $total_expenses,
             'total_net_income' => $total_net_income,
             'active_invoice_scope' => $invoiceScope,
+            'active_range_type' => $range['type'],
         ]);
     }
 
@@ -186,5 +90,176 @@ class DashboardController extends Controller
         return in_array($requestedScope, [Invoice::ACCESS_SCOPE_ALL, Invoice::ACCESS_SCOPE_OFS_ONLY], true)
             ? $requestedScope
             : Invoice::ACCESS_SCOPE_ALL;
+    }
+
+    private function resolveChartRange(Request $request): array
+    {
+        $validated = $request->validate([
+            'range_type' => 'nullable|in:this_year,previous_year,custom',
+            'from_date' => 'nullable|date|required_if:range_type,custom',
+            'to_date' => 'nullable|date|required_if:range_type,custom',
+        ]);
+
+        $rangeType = $validated['range_type'] ?? ($request->has('previous_year') ? 'previous_year' : 'this_year');
+
+        if ($rangeType === 'custom') {
+            $startDate = Carbon::createFromFormat('Y-m-d', $validated['from_date'])->startOfDay();
+            $endDate = Carbon::createFromFormat('Y-m-d', $validated['to_date'])->endOfDay();
+
+            if ($startDate->gt($endDate)) {
+                [$startDate, $endDate] = [$endDate, $startDate];
+            }
+
+            return [
+                'type' => 'custom',
+                'start' => $startDate,
+                'end' => $endDate,
+            ];
+        }
+
+        $fiscalYear = CompanySetting::getSetting('fiscal_year', $request->header('company'));
+        $startDate = $this->resolveFiscalYearStartDate($fiscalYear);
+
+        if ($rangeType === 'previous_year') {
+            $startDate->subYear()->startOfMonth();
+        }
+
+        return [
+            'type' => $rangeType,
+            'start' => $startDate,
+            'end' => $startDate->copy()->addMonths(11)->endOfMonth(),
+        ];
+    }
+
+    private function resolveFiscalYearStartDate(?string $fiscalYear): Carbon
+    {
+        $startDate = Carbon::now();
+        $terms = explode('-', (string) $fiscalYear);
+        $companyStartMonth = intval($terms[0] ?? 1);
+
+        if ($companyStartMonth < 1 || $companyStartMonth > 12) {
+            $companyStartMonth = 1;
+        }
+
+        if ($companyStartMonth <= $startDate->month) {
+            $startDate->month($companyStartMonth)->startOfMonth();
+        } else {
+            $startDate->subYear()->month($companyStartMonth)->startOfMonth();
+        }
+
+        return $startDate;
+    }
+
+    private function buildFiscalYearChartData(Carbon $startDate, string $invoiceScope): array
+    {
+        $invoiceTotals = [];
+        $expenseTotals = [];
+        $receiptTotals = [];
+        $netIncomeTotals = [];
+        $months = [];
+        $start = $startDate->copy()->startOfMonth();
+        $end = $startDate->copy()->endOfMonth();
+
+        for ($monthCounter = 0; $monthCounter < 12; $monthCounter++) {
+            $invoiceTotals[] = $this->sumInvoiceTotals($start, $end, $invoiceScope);
+            $expenseTotals[] = $this->sumExpenseTotals($start, $end);
+            $receiptTotals[] = $this->sumReceiptTotals($start, $end, $invoiceScope);
+            $netIncomeTotals[] = $receiptTotals[$monthCounter] - $expenseTotals[$monthCounter];
+            $months[] = $start->translatedFormat('M');
+
+            $start->addMonth()->startOfMonth();
+            $end->addMonth()->endOfMonth();
+        }
+
+        return [
+            'months' => $months,
+            'invoice_totals' => $invoiceTotals,
+            'expense_totals' => $expenseTotals,
+            'receipt_totals' => $receiptTotals,
+            'net_income_totals' => $netIncomeTotals,
+        ];
+    }
+
+    private function buildCustomRangeChartData(Carbon $startDate, Carbon $endDate, string $invoiceScope): array
+    {
+        $invoiceTotals = [];
+        $expenseTotals = [];
+        $receiptTotals = [];
+        $netIncomeTotals = [];
+        $months = [];
+        $useDailyBuckets = $startDate->copy()->startOfDay()->diffInDays($endDate->copy()->startOfDay()) <= 31;
+        $cursor = $useDailyBuckets
+            ? $startDate->copy()->startOfDay()
+            : $startDate->copy()->startOfMonth();
+
+        while ($cursor->lte($endDate)) {
+            if ($useDailyBuckets) {
+                $bucketStart = $cursor->copy()->startOfDay();
+                $bucketEnd = $cursor->copy()->endOfDay();
+                $label = $bucketStart->translatedFormat('d.m.');
+                $cursor->addDay()->startOfDay();
+            } else {
+                $bucketStart = $cursor->copy()->startOfMonth();
+                $bucketEnd = $cursor->copy()->endOfMonth();
+
+                if ($bucketStart->lt($startDate)) {
+                    $bucketStart = $startDate->copy()->startOfDay();
+                }
+
+                if ($bucketEnd->gt($endDate)) {
+                    $bucketEnd = $endDate->copy()->endOfDay();
+                }
+
+                $label = $cursor->translatedFormat('M y');
+                $cursor->addMonth()->startOfMonth();
+            }
+
+            $invoiceTotals[] = $this->sumInvoiceTotals($bucketStart, $bucketEnd, $invoiceScope);
+            $expenseTotals[] = $this->sumExpenseTotals($bucketStart, $bucketEnd);
+            $receiptTotals[] = $this->sumReceiptTotals($bucketStart, $bucketEnd, $invoiceScope);
+            $lastIndex = count($receiptTotals) - 1;
+            $netIncomeTotals[] = $receiptTotals[$lastIndex] - $expenseTotals[$lastIndex];
+            $months[] = $label;
+        }
+
+        return [
+            'months' => $months,
+            'invoice_totals' => $invoiceTotals,
+            'expense_totals' => $expenseTotals,
+            'receipt_totals' => $receiptTotals,
+            'net_income_totals' => $netIncomeTotals,
+        ];
+    }
+
+    private function sumInvoiceTotals(Carbon $startDate, Carbon $endDate, string $invoiceScope): int
+    {
+        return (int) Invoice::whereBetween(
+            'invoice_date',
+            [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')]
+        )
+            ->whereCompany()
+            ->applyInvoiceAccessScope($invoiceScope)
+            ->sum('base_total');
+    }
+
+    private function sumExpenseTotals(Carbon $startDate, Carbon $endDate): int
+    {
+        return (int) Expense::whereBetween(
+            'expense_date',
+            [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')]
+        )
+            ->whereCompany()
+            ->sum('base_amount');
+    }
+
+    private function sumReceiptTotals(Carbon $startDate, Carbon $endDate, string $invoiceScope): int
+    {
+        return (int) Payment::whereBetween(
+            'payment_date',
+            [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')]
+        )
+            ->whereCompany()
+            ->applyInvoiceAccessScope($invoiceScope)
+            ->sum('base_amount');
     }
 }
