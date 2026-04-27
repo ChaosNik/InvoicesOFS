@@ -278,6 +278,7 @@
   "items": {
     "title": "Items",
     "items_list": "Items List",
+    "item_code": "Item ID",
     "name": "Name",
     "unit": "Unit",
     "description": "Description",
@@ -1624,6 +1625,7 @@
     "password_min_length": "Password must contain {count} characters",
     "name_min_length": "Name must have at least {count} letters.",
     "name_max_length": "Name must not be greater than {count} characters.",
+    "item_code_max_length": "Item ID must not be greater than {count} characters.",
     "ofs_gtin_min_length": "OFS GTIN must have at least {count} characters.",
     "ofs_gtin_max_length": "OFS GTIN must not be greater than {count} characters.",
     "prefix_min_length": "Prefix must have at least {count} letters.",

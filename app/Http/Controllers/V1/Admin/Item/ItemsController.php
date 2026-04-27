@@ -80,10 +80,11 @@ class ItemsController extends Controller
         }
 
         $hasTaxesColumn = in_array('taxes', $headers, true);
+        $hasItemCodeColumn = in_array('item_code', $headers, true);
 
         foreach ($rows as $rowNumber => $row) {
             try {
-                $this->importItemRow($row, $rowNumber, $companyId, $currencyId, $hasTaxesColumn, $result);
+                $this->importItemRow($row, $rowNumber, $companyId, $currencyId, $hasTaxesColumn, $hasItemCodeColumn, $result);
             } catch (\Throwable $exception) {
                 $result['skipped']++;
                 $result['errors'][] = [
@@ -143,9 +144,10 @@ class ItemsController extends Controller
         ]);
     }
 
-    private function importItemRow(array $row, int $rowNumber, int $companyId, $currencyId, bool $hasTaxesColumn, array &$result): void
+    private function importItemRow(array $row, int $rowNumber, int $companyId, $currencyId, bool $hasTaxesColumn, bool $hasItemCodeColumn, array &$result): void
     {
         $name = trim((string) ($row['name'] ?? ''));
+        $itemCode = trim((string) ($row['item_code'] ?? ''));
         $price = trim((string) ($row['price'] ?? ''));
         $ofsGtin = trim((string) ($row['ofs_gtin'] ?? ''));
 
@@ -164,7 +166,7 @@ class ItemsController extends Controller
         $unit = $this->resolveImportUnit($row['unit'] ?? '', $companyId);
         $taxes = $hasTaxesColumn ? $this->resolveImportTaxes($row['taxes'] ?? '', $companyId, $this->parseMoneyToMinorUnits($price)) : null;
 
-        DB::transaction(function () use ($row, $companyId, $currencyId, $name, $price, $ofsGtin, $unit, $taxes, &$result) {
+        DB::transaction(function () use ($row, $companyId, $currencyId, $name, $itemCode, $price, $ofsGtin, $unit, $taxes, $hasItemCodeColumn, &$result) {
             $item = $this->findImportItem($name, $ofsGtin, $companyId);
             $payload = [
                 'name' => $name,
@@ -176,6 +178,10 @@ class ItemsController extends Controller
                 'currency_id' => $currencyId,
                 'creator_id' => Auth::id(),
             ];
+
+            if ($hasItemCodeColumn) {
+                $payload['item_code'] = $itemCode !== '' ? $itemCode : null;
+            }
 
             if ($item) {
                 $this->authorize('update', $item);
@@ -253,6 +259,7 @@ class ItemsController extends Controller
 
             return match ($key) {
                 'item', 'item_name', 'product', 'product_name', 'naziv' => 'name',
+                'item_code', 'code', 'item_id', 'product_code', 'sifra', 'id' => 'item_code',
                 'cijena', 'cena', 'unit_price' => 'price',
                 'jedinica', 'unit_name' => 'unit',
                 'gtin', 'barcode', 'bar_code', 'ofs_grin', 'ofs_gtin_number' => 'ofs_gtin',

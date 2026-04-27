@@ -19,19 +19,41 @@ npm run build
 
 ## Daily start
 
-Run the backend:
+One command:
 
 ```powershell
-.\.tools\php\php.exe artisan serve --host=127.0.0.1 --port=8000
+.\run-local.cmd
 ```
 
 Open:
 
 [http://127.0.0.1:8000/](http://127.0.0.1:8000/)
 
-## If you are editing the frontend live
+This starts only what you need for normal use:
+- Laravel backend on `127.0.0.1:8000`
+- built frontend assets from `public/build`
 
-Keep the PHP server running, then open a second PowerShell window and run:
+This is the fastest option and avoids waiting for Vite.
+
+## Frontend live editing
+
+If you want live reload while editing the frontend, use:
+
+```powershell
+.\run-dev.cmd
+```
+
+This starts:
+- Laravel backend on `127.0.0.1:8000`
+- Vite frontend on `127.0.0.1:5173`
+
+If you prefer to run them separately, you still can:
+
+```powershell
+.\.tools\php\php.exe artisan serve --host=127.0.0.1 --port=8000
+```
+
+If you want to run the frontend manually in a second PowerShell window:
 
 ```powershell
 npm run dev

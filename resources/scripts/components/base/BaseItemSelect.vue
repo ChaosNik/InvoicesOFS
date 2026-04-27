@@ -29,20 +29,21 @@
       v-else
       v-model="itemSelect"
       :content-loading="contentLoading"
+      :loading="isLoadingOptions"
       value-prop="id"
-      track-by="name"
+      track-by="search_text"
       :invalid="invalid"
       preserve-search
       :initial-search="itemData.name"
-      label="name"
-      :filterResults="false"
-      resolve-on-load
-      :delay="150"
+      label="display_name"
+      :filter-results="true"
       searchable
-      :options="searchItems"
+      :options="selectableItems"
       object
+      class="w-full"
+      @open="loadAvailableItems(true)"
       @update:modelValue="(val) => $emit('select', val)"
-      @searchChange="(val) => $emit('search', val)"
+      @search-change="(val) => $emit('search', val)"
     >
       <!-- Add Item Action  -->
       <template #action>
@@ -80,12 +81,10 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import axios from 'axios'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute } from 'vue-router'
-import { useEstimateStore } from '@/scripts/admin/stores/estimate'
-import { useInvoiceStore } from '@/scripts/admin/stores/invoice'
-import { useItemStore } from '@/scripts/admin/stores/item'
+import { useCompanyStore } from '@/scripts/admin/stores/company'
 import { useModalStore } from '@/scripts/stores/modal'
 import { useUserStore } from '@/scripts/admin/stores/user'
 import abilities from '@/scripts/admin/stub/abilities'
@@ -137,23 +136,18 @@ const props = defineProps({
 
 const emit = defineEmits(['search', 'select'])
 
-const itemStore = useItemStore()
-const estimateStore = useEstimateStore()
-const invoiceStore = useInvoiceStore()
+const companyStore = useCompanyStore()
 const modalStore = useModalStore()
 const userStore = useUserStore()
 
-let route = useRoute()
 const { t } = useI18n()
 
 const itemSelect = ref(null)
-const loading = ref(false)
+const availableItems = ref([])
+const areItemsLoaded = ref(false)
+const isLoadingOptions = ref(false)
 let itemData = reactive({ ...props.item })
 Object.assign(itemData, props.item)
-
-const taxAmount = computed(() => {
-  return 0
-})
 
 const description = computed({
   get: () => props.item.description,
@@ -162,14 +156,43 @@ const description = computed({
   },
 })
 
-async function searchItems(search) {
-  let res = await itemStore.fetchItems({ search })
-  return res.data.data
-}
+const selectableItems = computed(() => {
+  return availableItems.value.map((item) => ({
+    ...item,
+    display_name: [item.item_code, item.name].filter(Boolean).join(' - '),
+    search_text: [item.item_code, item.name, item.ofs_gtin].filter(Boolean).join(' '),
+  }))
+})
 
-function onTextChange(val) {
-  searchItems(val)
-  emit('search', val)
+async function loadAvailableItems(force = false) {
+  if (areItemsLoaded.value && !force) {
+    return availableItems.value
+  }
+
+  isLoadingOptions.value = true
+
+  try {
+    const response = await axios.get('/api/v1/items', {
+      params: {
+        limit: 'all',
+      },
+      headers: companyStore.selectedCompany?.id
+        ? {
+            company: companyStore.selectedCompany.id,
+          }
+        : {},
+    })
+
+    availableItems.value = response.data.data || []
+    areItemsLoaded.value = true
+  } catch (error) {
+    availableItems.value = []
+    areItemsLoaded.value = false
+  } finally {
+    isLoadingOptions.value = false
+  }
+
+  return availableItems.value
 }
 
 function openItemModal() {
@@ -190,4 +213,17 @@ function openItemModal() {
 function deselectItem(index) {
   props.store.deselectItem(index)
 }
+
+watch(
+  () => companyStore.selectedCompany?.id,
+  () => {
+    availableItems.value = []
+    areItemsLoaded.value = false
+    loadAvailableItems(true)
+  }
+)
+
+onMounted(() => {
+  loadAvailableItems()
+})
 </script>

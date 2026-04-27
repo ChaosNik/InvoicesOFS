@@ -35,6 +35,22 @@
           </BaseInputGroup>
 
           <BaseInputGroup
+            :label="$t('items.item_code')"
+            :content-loading="isFetchingInitialData"
+            :error="
+              v$.currentItem.item_code.$error &&
+              v$.currentItem.item_code.$errors[0].$message
+            "
+          >
+            <BaseInput
+              v-model="itemStore.currentItem.item_code"
+              :content-loading="isFetchingInitialData"
+              :invalid="v$.currentItem.item_code.$error"
+              @input="v$.currentItem.item_code.$touch()"
+            />
+          </BaseInputGroup>
+
+          <BaseInputGroup
             :label="$t('items.price')"
             :content-loading="isFetchingInitialData"
           >
@@ -245,6 +261,12 @@ const rules = computed(() => {
         minLength: helpers.withMessage(
           t('validation.name_min_length', { count: 2 }),
           minLength(2)
+        ),
+      },
+      item_code: {
+        maxLength: helpers.withMessage(
+          t('validation.item_code_max_length', { count: 50 }),
+          maxLength(50)
         ),
       },
 

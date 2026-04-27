@@ -27,6 +27,18 @@
               />
             </BaseInputGroup>
 
+            <BaseInputGroup
+              :label="$t('items.item_code')"
+              :error="v$.item_code.$error && v$.item_code.$errors[0].$message"
+            >
+              <BaseInput
+                v-model="itemStore.currentItem.item_code"
+                type="text"
+                :invalid="v$.item_code.$error"
+                @input="v$.item_code.$touch()"
+              />
+            </BaseInputGroup>
+
             <BaseInputGroup :label="$t('items.price')">
               <BaseMoney
                 :key="companyStore.selectedCompanyCurrency"
@@ -208,6 +220,12 @@ const rules = {
     maxLength: helpers.withMessage(
       t('validation.description_maxlength', { count: 255 }),
       maxLength(255)
+    ),
+  },
+  item_code: {
+    maxLength: helpers.withMessage(
+      t('validation.item_code_max_length', { count: 50 }),
+      maxLength(50)
     ),
   },
   ofs_gtin: {

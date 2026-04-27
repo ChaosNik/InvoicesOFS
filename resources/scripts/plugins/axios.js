@@ -15,7 +15,10 @@ axios.defaults.headers.common = {
 
 axios.interceptors.request.use(function (config) {
   // Pass selected company to header on all requests
-  const companyId = Ls.get('selectedCompany')
+  const companyId =
+    Ls.get('selectedCompany') ||
+    window.pinia?.state?.value?.company?.selectedCompany?.id ||
+    null
 
   const authToken = Ls.get('auth.token')
 

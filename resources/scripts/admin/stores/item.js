@@ -32,6 +32,7 @@ export const useItemStore = (useWindow = false) => {
       },
       currentItem: {
         name: '',
+        item_code: '',
         description: '',
         price: 0,
         ofs_gtin: '',
@@ -48,6 +49,7 @@ export const useItemStore = (useWindow = false) => {
       resetCurrentItem() {
         this.currentItem = {
           name: '',
+          item_code: '',
           description: '',
           price: 0,
           ofs_gtin: '',
@@ -130,6 +132,7 @@ export const useItemStore = (useWindow = false) => {
               const matchesSearch =
                 !search ||
                 item.name?.toLowerCase().includes(search) ||
+                item.item_code?.toLowerCase().includes(search) ||
                 item.ofs_gtin?.toLowerCase().includes(search)
               const matchesUnit =
                 !unitId || String(item.unit_id ?? '') === unitId
@@ -300,11 +303,16 @@ export const useItemStore = (useWindow = false) => {
         const notificationStore = useNotificationStore()
 
         return new Promise((resolve, reject) => {
+          const payload =
+            typeof id === 'object' && id !== null ? id : { ids: [id] }
+          const ids = Array.isArray(payload.ids) ? payload.ids : []
+
           axios
-            .post(`/api/v1/items/delete`, id)
+            .post(`/api/v1/items/delete`, payload)
             .then((response) => {
-              let index = this.items.findIndex((item) => item.id === id)
-              this.items.splice(index, 1)
+              if (ids.length) {
+                this.items = this.items.filter((item) => !ids.includes(item.id))
+              }
               this.invalidateItemCaches()
 
               notificationStore.showNotification({

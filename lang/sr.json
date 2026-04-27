@@ -278,6 +278,7 @@
   "items": {
     "title": "Stavke",
     "items_list": "Lista stavki",
+    "item_code": "ID stavke",
     "name": "Naziv",
     "unit": "Jedinica",
     "description": "Opis",
@@ -1654,6 +1655,7 @@
     "valid_exchange_rate": "Unesite ispravan kurs.",
     "company_name_not_same": "Naziv kompanije mora odgovarati zadanom nazivu.",
     "name_max_length": "Naziv ne smije biti duži od 255 znakova.",
+    "item_code_max_length": "ID stavke ne smije biti duzi od {count} znakova.",
     "ofs_gtin_min_length": "OFS GTIN mora imati najmanje 8 znakova.",
     "ofs_gtin_max_length": "OFS GTIN ne smije imati više od 14 znakova."
   },

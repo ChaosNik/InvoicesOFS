@@ -50,6 +50,7 @@ class Item extends Model
     {
         return $query->where(function ($query) use ($search) {
             $query->where('items.name', 'LIKE', '%'.$search.'%')
+                ->orWhere('items.item_code', 'LIKE', '%'.$search.'%')
                 ->orWhere('items.ofs_gtin', 'LIKE', '%'.$search.'%');
         });
     }

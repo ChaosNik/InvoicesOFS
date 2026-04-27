@@ -180,6 +180,10 @@
           </router-link>
         </template>
 
+        <template #cell-item_code="{ row }">
+          <span>{{ row.data.item_code || '-' }}</span>
+        </template>
+
         <template #cell-unit_name="{ row }">
           <span>
             {{ row.data.unit ? row.data.unit.name : '-' }}
@@ -263,6 +267,10 @@ const itemColumns = computed(() => {
       tdClass: 'font-medium text-gray-900',
       placeholderClass: 'w-10',
       sortable: false,
+    },
+    {
+      key: 'item_code',
+      label: t('items.item_code'),
     },
     {
       key: 'name',

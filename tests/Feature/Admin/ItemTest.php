@@ -37,6 +37,7 @@ test('get items', function () {
 
 test('create item', function () {
     $item = Item::factory()->raw([
+        'item_code' => 'ART-001',
         'taxes' => [
             Tax::factory()->raw(),
             Tax::factory()->raw(),
@@ -47,6 +48,7 @@ test('create item', function () {
 
     $this->assertDatabaseHas('items', [
         'name' => $item['name'],
+        'item_code' => $item['item_code'],
         'description' => $item['description'],
         'price' => $item['price'],
         'company_id' => $item['company_id'],
@@ -86,6 +88,7 @@ test('update item', function () {
     $item = Item::factory()->create();
 
     $update_item = Item::factory()->raw([
+        'item_code' => 'ART-002',
         'taxes' => [
             Tax::factory()->raw(),
         ],
@@ -97,6 +100,7 @@ test('update item', function () {
 
     $this->assertDatabaseHas('items', [
         'name' => $update_item['name'],
+        'item_code' => $update_item['item_code'],
         'description' => $update_item['description'],
         'price' => $update_item['price'],
         'company_id' => $update_item['company_id'],
@@ -156,6 +160,27 @@ test('search items by OFS GTIN', function () {
     ]);
 
     $response = getJson('api/v1/items?search=9876543210123&limit=all');
+
+    $response->assertOk();
+
+    $itemIds = collect($response->json('data'))->pluck('id');
+
+    expect($itemIds)
+        ->toContain($matchingItem->id)
+        ->not->toContain($otherItem->id);
+});
+
+test('search items by item code', function () {
+    $matchingItem = Item::factory()->create([
+        'name' => 'Coffee Beans',
+        'item_code' => 'SKU-COFFEE-1',
+    ]);
+    $otherItem = Item::factory()->create([
+        'name' => 'Tea Leaves',
+        'item_code' => 'SKU-TEA-1',
+    ]);
+
+    $response = getJson('api/v1/items?search=SKU-COFFEE-1&limit=all');
 
     $response->assertOk();
 
@@ -226,8 +251,8 @@ test('import items from csv creates items with unit and OFS tax label', function
     ]);
 
     $csv = implode("\n", [
-        'name,price,unit,ofs_gtin,description,taxes',
-        'Kafa,12.50,kom,3871234567890,Opis,E',
+        'item_code,name,price,unit,ofs_gtin,description,taxes',
+        'A-001,Kafa,12.50,kom,3871234567890,Opis,E',
     ]);
 
     $file = UploadedFile::fake()->createWithContent('items.csv', $csv);
@@ -245,6 +270,7 @@ test('import items from csv creates items with unit and OFS tax label', function
 
     $this->assertDatabaseHas('items', [
         'id' => $item->id,
+        'item_code' => 'A-001',
         'name' => 'Kafa',
         'price' => 1250,
         'company_id' => $companyId,
